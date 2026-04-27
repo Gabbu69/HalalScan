@@ -1,0 +1,212 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Html5Qrcode } from 'html5-qrcode';
+import { Button } from '../components/Button';
+import { Search, Camera, Loader2, RefreshCw, X } from 'lucide-react';
+import { useAppStore } from '../store/useAppStore';
+
+export function Scanner() {
+  const [manualBarcode, setManualBarcode] = useState('');
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [isScannerReady, setIsScannerReady] = useState(false);
+  const [scannerError, setScannerError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { setPendingAnalysisImage } = useAppStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+
+  useEffect(() => {
+    const readerId = "reader";
+    
+    const startScanner = async () => {
+      try {
+        const html5QrCode = new Html5Qrcode(readerId);
+        scannerRef.current = html5QrCode;
+
+        const config = { 
+          fps: 10, 
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0
+        };
+
+        // Prefer back camera
+        await html5QrCode.start(
+          { facingMode: "environment" }, 
+          config, 
+          (decodedText) => {
+            html5QrCode.stop().then(() => {
+              navigate(`/analysis?barcode=${decodedText}`);
+            }).catch(() => {
+              navigate(`/analysis?barcode=${decodedText}`);
+            });
+          },
+          (errorMessage) => {
+            // parse error, ignore
+          }
+        );
+        
+        setIsScannerReady(true);
+        setScannerError(null);
+      } catch (err) {
+        console.error("Scanner start error:", err);
+        setScannerError("Could not start camera. Please ensure camera permissions are granted.");
+      }
+    };
+
+    // Delay initialization slightly to ensure element is in DOM
+    const timer = setTimeout(startScanner, 500);
+
+    return () => {
+      clearTimeout(timer);
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().catch(e => console.error("Error stopping scanner", e));
+      }
+    };
+  }, [navigate]);
+
+  const handleManualSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (manualBarcode.trim().length < 3) {
+      alert("Enter a valid barcode");
+      return;
+    }
+    navigate(`/analysis?barcode=${manualBarcode.trim()}`);
+  };
+
+  const handleCapturePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessingImage(true);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setPendingAnalysisImage(base64);
+      // Let the UI breathe before navigating
+      setTimeout(() => {
+         navigate('/analysis?type=image');
+      }, 300);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const retryScanner = () => {
+    window.location.reload();
+  };
+
+  return (
+    <div className="flex flex-col h-screen bg-black text-white relative overflow-hidden">
+      
+      {/* Scanner Wrapper */}
+      <div className="flex-1 relative w-full h-full bg-black">
+        <div id="reader" className="absolute inset-0 [&_video]:!object-cover"></div>
+        
+        {/* Loading/Error State */}
+        {!isScannerReady && !scannerError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-20">
+            <Loader2 size={40} className="animate-spin text-[#C9A84C] mb-4" />
+            <p className="text-sm font-bold tracking-widest uppercase opacity-60">Initializing Camera...</p>
+          </div>
+        )}
+
+        {scannerError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-20 p-8 text-center">
+            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
+              <Camera size={32} className="text-red-500" />
+            </div>
+            <p className="text-sm font-bold mb-6">{scannerError}</p>
+            <button 
+              onClick={retryScanner}
+              className="flex items-center gap-2 bg-white text-black px-6 py-3 rounded-xl font-bold text-xs uppercase"
+            >
+              <RefreshCw size={16} />
+              Retry Camera
+            </button>
+          </div>
+        )}
+        
+        {/* Target Marker Overlay */}
+        <div className="absolute top-[30%] left-1/2 -translate-x-1/2 w-[250px] h-[250px] pointer-events-none z-10">
+          {/* Animated Corners */}
+          <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#C9A84C] opacity-80 rounded-tl-xl animate-pulse"></div>
+          <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-[#C9A84C] opacity-80 rounded-tr-xl animate-pulse"></div>
+          <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-[#C9A84C] opacity-80 rounded-bl-xl animate-pulse"></div>
+          <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-[#C9A84C] opacity-80 rounded-br-xl animate-pulse"></div>
+          
+          {/* Sweeping Laser Line */}
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-green-400 shadow-[0_0_12px_rgba(74,222,128,1)] animate-scan"></div>
+        </div>
+
+        {/* Back Button */}
+        <button 
+          onClick={() => navigate(-1)}
+          className="absolute top-6 left-6 w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center z-30"
+        >
+          <X size={20} />
+        </button>
+      </div>
+      
+      {/* Bottom Controls */}
+      <div className="absolute bottom-0 left-0 w-full p-6 pt-8 bg-[#1a1a1a]/95 backdrop-blur-md rounded-t-[32px] border-t border-white/10 shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-20 flex flex-col gap-5">
+        
+        <input 
+          type="file" 
+          accept="image/*" 
+          capture="environment" 
+          className="hidden" 
+          ref={fileInputRef}
+          onChange={handleCapturePhoto}
+        />
+        
+        <button 
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isProcessingImage}
+          className="w-full flex items-center justify-center gap-3 bg-[#1B6B3A] hover:bg-[#14532b] text-white py-4 rounded-2xl font-bold tracking-wider transition-all disabled:opacity-70 shadow-lg shadow-[#1B6B3A]/30 border border-[#1B6B3A]/50 active:scale-[0.98] uppercase text-xs"
+        >
+          {isProcessingImage ? (
+            <>
+              <Loader2 size={20} className="animate-spin text-[#C9A84C]" />
+              <span className="text-white">Processing Photo...</span>
+            </>
+          ) : (
+            <>
+              <Camera size={20} className="text-[#C9A84C]" />
+              <span>Snap Ingredients Photo</span>
+            </>
+          )}
+        </button>
+
+        <div className="flex items-center gap-3 w-full">
+           <div className="h-px bg-white/10 flex-1"></div>
+           <span className="text-[10px] text-white/40 font-bold tracking-widest uppercase">Or Enter Barcode</span>
+           <div className="h-px bg-white/10 flex-1"></div>
+        </div>
+
+        <form onSubmit={handleManualSubmit} className="flex flex-row relative">
+          <input 
+            className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
+            placeholder="e.g. 3017620..."
+            type="number"
+            value={manualBarcode}
+            onChange={(e) => setManualBarcode(e.target.value)}
+          />
+          <button 
+            type="submit"
+            className="absolute right-1.5 top-1.5 bottom-1.5 bg-[#C9A84C] hover:bg-[#b09341] px-5 rounded-lg transition-colors flex items-center justify-center text-[#1B6B3A] shadow-md disabled:opacity-40"
+            disabled={!manualBarcode.trim()}
+          >
+            <Search size={20} className="stroke-[3]" />
+          </button>
+        </form>
+
+        <button 
+          className="w-full py-2 mt-1 text-[10px] font-bold tracking-widest uppercase text-white/40 hover:text-white transition-colors"
+          onClick={() => navigate(-1)} 
+        >
+          Cancel & Return
+        </button>
+      </div>
+    </div>
+  );
+}

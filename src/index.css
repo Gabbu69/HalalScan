@@ -1,0 +1,47 @@
+@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-primary: #1B6B3A;
+  --color-accent: #C9A84C;
+  --color-light-bg: #F9F5F0;
+  --color-dark-bg: #0F1A13;
+  --color-halal: #1B6B3A;
+  --color-haram: #D32F2F;
+  --color-mashbooh: #F57C00;
+
+  --font-amiri: "Amiri", serif;
+  --font-nunito: "Nunito", sans-serif;
+  
+  --animate-scan: scan-line 2s ease-in-out infinite;
+  
+  @keyframes scan-line {
+    0% { transform: translateY(0); opacity: 0; }
+    10% { opacity: 1; }
+    50% { transform: translateY(250px); opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(0); opacity: 0; }
+  }
+}
+
+:root {
+  --bg-color: var(--color-light-bg);
+  --text-color: #1a1a1a;
+  --card-bg: #ffffff;
+  --card-border: #f3f4f6;
+}
+
+.dark {
+  --bg-color: var(--color-dark-bg);
+  --text-color: #f3f4f6;
+  --card-bg: #1a2e22;
+  --card-border: #1f2937;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}

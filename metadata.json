@@ -1,0 +1,9 @@
+{
+  "name": "HalalScan",
+  "description": "AI-powered Halal Meat Traceability System for Muslim consumers",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}
