@@ -34,7 +34,7 @@ Return ONLY a valid JSON object with the following exact structure:
   try {
     const ai = getAiClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -97,7 +97,7 @@ Return ONLY a valid JSON object with the following exact structure ("ingredients
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
+      model: 'gemini-2.5-flash',
       contents: [
         { text: prompt },
         { inlineData: { data: base64Data, mimeType } }
@@ -131,7 +131,7 @@ Provide a concise, direct, and well-structured answer. ${!isGeneral ? "If there 
   try {
     const ai = getAiClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
+      model: 'gemini-2.5-flash',
       contents: prompt,
     });
     return response.text;
