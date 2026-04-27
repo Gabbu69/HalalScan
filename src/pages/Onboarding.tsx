@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { Button } from '../components/Button';
 import { Scan, Cpu, BookOpen } from 'lucide-react';
+import { useTranslation } from '../hooks/useTranslation';
 
 const SLIDES = [
   {
@@ -23,6 +24,7 @@ const SLIDES = [
 ];
 
 export function Onboarding() {
+  const { t } = useTranslation();
   const [step, setStep] = useState(0);
   const setHasOnboarded = useAppStore(state => state.setHasOnboarded);
   const navigate = useNavigate();
@@ -41,10 +43,10 @@ export function Onboarding() {
       <div className="flex-1 flex flex-col items-center justify-center text-center">
         {SLIDES[step].icon}
         <h1 className="font-amiri font-bold text-4xl text-[var(--color-primary)] dark:text-green-400 mt-8 mb-4">
-          {SLIDES[step].title}
+          {t(`onboarding.s${step + 1}_title`) || SLIDES[step].title}
         </h1>
         <p className="font-nunito text-lg text-gray-600 dark:text-gray-400 px-4">
-          {SLIDES[step].text}
+          {t(`onboarding.s${step + 1}_desc`) || SLIDES[step].text}
         </p>
       </div>
       
@@ -58,7 +60,7 @@ export function Onboarding() {
           ))}
         </div>
         <Button 
-          title={step === SLIDES.length - 1 ? "Get Started" : "Next"} 
+          title={step === SLIDES.length - 1 ? (t('onboarding.get_started') || "Get Started") : (t('onboarding.next') || "Next")} 
           onClick={handleNext}
           className="w-full"
         />

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { askHalalAssistant } from '../utils/geminiApi';
 import { Bot, Send, User } from 'lucide-react';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface ChatMessage {
   id: string;
@@ -11,11 +12,12 @@ interface ChatMessage {
 
 export function AiChat() {
   const { madhab } = useAppStore();
+  const { t } = useTranslation();
   const isGeneral = madhab === 'General';
   
   const initialGreeting = isGeneral
-    ? "Hello! I am Scan AI. How can I assist you with analyzing products for animal-derived ingredients, hidden pork, or alcohol today?"
-    : "Assalamu alaikum! I am HalalScan AI. How can I help you regarding Halal food, ingredients, or Islamic jurisprudence today?";
+    ? (t('chat.welcome_general') || "Hello! I am Scan AI. How can I assist you with analyzing products for animal-derived ingredients, hidden pork, or alcohol today?")
+    : (t('chat.welcome') || "Assalamu alaikum! I am HalalScan AI. How can I help you regarding Halal food, ingredients, or Islamic jurisprudence today?");
 
   const [messages, setMessages] = useState<ChatMessage[]>([{
     id: '1',
@@ -25,14 +27,14 @@ export function AiChat() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // When madhab changes, reset chat
+  // When madhab or language changes, reset chat
   React.useEffect(() => {
     setMessages([{
       id: '1',
       role: 'assistant',
       content: initialGreeting
     }]);
-  }, [madhab, isGeneral]);
+  }, [madhab, isGeneral, initialGreeting]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +78,7 @@ export function AiChat() {
         </div>
         <div>
           <h2 className="font-amiri italic text-xl text-[#1B6B3A] dark:text-green-400 font-bold leading-tight">
-            {isGeneral ? "Scan AI" : "Ask Imam AI"}
+            {t('chat.title') || (isGeneral ? "Scan AI" : "Ask Imam AI")}
           </h2>
           <p className="text-[10px] text-gray-500 font-bold tracking-wider uppercase">Powered by Gemini</p>
         </div>
@@ -112,7 +114,7 @@ export function AiChat() {
           <input
             type="text"
             className="flex-1 px-4 py-3 rounded-full bg-[#F9F5F0] dark:bg-[#0f1a13] text-[#1a1a1a] dark:text-white text-sm focus:outline-none border border-gray-200 dark:border-gray-700"
-            placeholder={isGeneral ? "E.g. Is carmine vegan?" : "E.g. Is cochineal allowed?"}
+            placeholder={t('chat.placeholder') || (isGeneral ? "E.g. Is carmine vegan?" : "E.g. Is cochineal allowed?")}
             value={input}
             onChange={(e) => setInput(e.target.value)}
           />

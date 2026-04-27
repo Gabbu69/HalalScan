@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { ScanLine, Search, CheckCircle2, XCircle, AlertTriangle, User, MapPin, Navigation, Info } from 'lucide-react';
 import { Badge } from '../components/Badge';
+import { useTranslation } from '../hooks/useTranslation';
 
 export function Home() {
   const { scans, getStats, userLocation, setUserLocation, locationPermissionStatus, setLocationPermissionStatus } = useAppStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const stats = getStats();
   const recentScans = scans.slice(0, 5);
   const [loadingLocation, setLoadingLocation] = useState(false);
@@ -44,7 +46,7 @@ export function Home() {
     <div className="p-5 pb-8 max-w-md mx-auto h-full flex flex-col pt-6">
       <div className="flex justify-between items-center mb-6">
         <div className="text-xs text-gray-500 uppercase tracking-widest font-bold">
-          {useAppStore.getState().madhab === 'General' ? 'Welcome' : 'Welcome, Brother/Sister'}
+          {useAppStore.getState().madhab === 'General' ? t('home.greeting_general') : t('home.greeting')}
         </div>
         <button 
           onClick={() => navigate('/profile')}
@@ -124,18 +126,18 @@ export function Home() {
           <ScanLine size={48} className="text-white" />
         </button>
         <div className="text-center">
-          <h2 className="font-amiri italic text-xl text-[#1B6B3A] dark:text-green-400 font-bold tracking-wide">Scan Product</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Verify ingredients instantly</p>
+          <h2 className="font-amiri italic text-xl text-[#1B6B3A] dark:text-green-400 font-bold tracking-wide">{t('home.scan_product')}</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('home.scan_desc')}</p>
         </div>
       </div>
 
       {/* Recent Scans */}
       <div className="mb-2">
-        <h3 className="text-xs font-bold uppercase text-gray-400 mb-3 tracking-tighter">Recent Scans</h3>
+        <h3 className="text-xs font-bold uppercase text-gray-400 mb-3 tracking-tighter">{t('home.recent_scans')}</h3>
         {recentScans.length === 0 ? (
            <div className="bg-white dark:bg-[#1a2e22] rounded-2xl p-4 py-8 flex flex-col items-center justify-center shadow-sm border border-gray-100 dark:border-gray-800">
              <Search size={28} className="text-gray-300 dark:text-gray-600 mb-2" />
-             <div className="text-xs text-gray-400 font-medium">No scans yet</div>
+             <div className="text-xs text-gray-400 font-medium">{t('home.no_scans')}</div>
            </div>
         ) : (
           <div className="space-y-2">

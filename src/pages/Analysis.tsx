@@ -5,6 +5,7 @@ import { runIntegratedAnalysis, runIntegratedImageAnalysis } from '../utils/syst
 import { useAppStore, ScanRecord } from '../store/useAppStore';
 import { Badge } from '../components/Badge';
 import { ScanSearch, ArrowLeft, Cpu, Database, Network, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { useTranslation } from '../hooks/useTranslation';
 
 export function Analysis() {
   const [searchParams] = useSearchParams();
@@ -12,6 +13,7 @@ export function Analysis() {
   const barcode = searchParams.get('barcode');
   const type = searchParams.get('type');
   const { addScan, madhab, pendingAnalysisImage, setPendingAnalysisImage } = useAppStore();
+  const { t } = useTranslation();
   
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState('Fetching product details...');
@@ -111,7 +113,7 @@ export function Analysis() {
             onClick={() => navigate(-1)}
             className="w-full bg-[#1B6B3A] hover:bg-[#14532b] text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-colors shadow-md"
           >
-            Go Back & Try Again
+            {t('analysis.back') || 'Go Back & Try Again'}
           </button>
         </div>
       </div>
@@ -124,7 +126,7 @@ export function Analysis() {
         <div className="max-w-md mx-auto w-full pt-4">
           <button onClick={() => navigate(-1)} className="flex items-center gap-2 mb-6 text-[#1B6B3A] dark:text-green-400 transition-opacity opacity-50 cursor-not-allowed">
             <ArrowLeft size={16} />
-            <span className="font-amiri italic font-bold text-lg">Analyzing...</span>
+            <span className="font-amiri italic font-bold text-lg">{t('scanner.processing') || 'Analyzing...'}</span>
           </button>
 
           {/* Product Details Skeleton */}
@@ -187,7 +189,7 @@ export function Analysis() {
       <div className="max-w-md mx-auto w-full pt-4">
         <button onClick={() => navigate('/')} className="flex items-center gap-2 mb-6 text-[#1B6B3A] dark:text-green-400 transition-opacity hover:opacity-80">
           <ArrowLeft size={16} />
-          <span className="font-amiri italic font-bold text-lg">Analysis Result</span>
+          <span className="font-amiri italic font-bold text-lg">{t('analysis.title')}</span>
         </button>
 
         <div className="bg-white dark:bg-[#1a2e22] rounded-2xl p-5 mb-4 shadow-sm text-center flex flex-col items-center border border-gray-100 dark:border-gray-800">
@@ -203,16 +205,16 @@ export function Analysis() {
           <div className="mt-4">
             <Badge verdict={result.verdict} size="lg" />
           </div>
-          <div className="mt-3 text-[10px] font-bold text-gray-500 tracking-wider">AI System Confidence: {result.confidence}%</div>
+          <div className="mt-3 text-[10px] font-bold text-gray-500 tracking-wider">{t('analysis.confidence')}: {result.confidence}%</div>
         </div>
 
         <div className={`bg-white dark:bg-[#1a2e22] rounded-2xl p-4 mb-4 shadow-sm border-l-4 border border-gray-100 dark:border-gray-800 ${borderClass}`}>
-          <h3 className={`text-[11px] font-bold uppercase mb-1 tracking-wider ${textClass}`}>System Findings</h3>
+          <h3 className={`text-[11px] font-bold uppercase mb-1 tracking-wider ${textClass}`}>{t('analysis.reason') || 'System Findings'}</h3>
           <p className="text-[10px] leading-relaxed text-gray-600 dark:text-gray-300">{result.reason}</p>
           
           {result.recommendation && (
             <>
-              <h3 className={`text-[11px] font-bold uppercase mt-4 mb-1 tracking-wider ${textClass}`}>Recommendation</h3>
+              <h3 className={`text-[11px] font-bold uppercase mt-4 mb-1 tracking-wider ${textClass}`}>{t('analysis.recommendation')}</h3>
               <p className="text-[10px] leading-relaxed text-gray-600 dark:text-gray-300">{result.recommendation}</p>
             </>
           )}
@@ -220,7 +222,7 @@ export function Analysis() {
 
         {result.flagged_ingredients && result.flagged_ingredients.length > 0 && (
           <div className="bg-white dark:bg-[#1a2e22] rounded-2xl p-4 mb-4 shadow-sm border border-gray-100 dark:border-gray-800">
-            <h3 className="text-[11px] font-bold text-red-600 uppercase mb-3 tracking-wider">Flagged Ingredients</h3>
+            <h3 className="text-[11px] font-bold text-red-600 uppercase mb-3 tracking-wider">{t('analysis.flagged')}</h3>
             <div className="flex flex-row flex-wrap gap-2">
               {result.flagged_ingredients.map((ing, idx) => (
                 <div key={idx} className="bg-red-50 dark:bg-red-900/40 px-2 py-1 flex items-center rounded border border-red-100 dark:border-red-900">
@@ -297,7 +299,7 @@ export function Analysis() {
              onClick={() => navigate('/')} 
              className="w-full bg-[#1B6B3A] hover:bg-[#14532b] text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-colors shadow-md"
            >
-             Check Another Product
+             {t('analysis.done') || 'Check Another Product'}
            </button>
         </div>
       </div>

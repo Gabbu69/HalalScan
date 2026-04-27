@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { useAppStore } from './store/useAppStore';
@@ -16,7 +17,11 @@ import { Profile } from './pages/Profile';
 import { AiChat } from './pages/AiChat';
 
 export default function App() {
-  const { hasOnboarded } = useAppStore();
+  const { hasOnboarded, language } = useAppStore();
+
+  React.useEffect(() => {
+    document.documentElement.dir = language === 'Arabic' ? 'rtl' : 'ltr';
+  }, [language]);
 
   return (
     <BrowserRouter>

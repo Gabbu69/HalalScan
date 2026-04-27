@@ -21,6 +21,7 @@ interface AppState {
   hasOnboarded: boolean;
   isDarkMode: boolean;
   madhab: string;
+  language: string;
   scans: ScanRecord[];
   pendingAnalysisImage: string | null;
   userLocation: { lat: number; lng: number } | null;
@@ -31,6 +32,7 @@ interface AppState {
   setHasOnboarded: (val: boolean) => void;
   toggleDarkMode: () => void;
   setMadhab: (madhab: string) => void;
+  setLanguage: (language: string) => void;
   setUserLocation: (loc: { lat: number; lng: number } | null) => void;
   setLocationPermissionStatus: (status: 'prompt' | 'granted' | 'denied') => void;
   updateUserProfile: (profile: Partial<{ name: string; email: string; avatar: string | null }>) => void;
@@ -49,6 +51,7 @@ export const useAppStore = create<AppState>()(
       hasOnboarded: false,
       isDarkMode: false,
       madhab: "Shafi'i",
+      language: "English",
       scans: [],
       pendingAnalysisImage: null,
       userLocation: null,
@@ -66,6 +69,7 @@ export const useAppStore = create<AppState>()(
         return { isDarkMode: newDarkMode };
       }),
       setMadhab: (madhab: string) => set({ madhab }),
+      setLanguage: (language: string) => set({ language }),
       setUserLocation: (userLocation: { lat: number; lng: number } | null) => set({ userLocation }),
       setLocationPermissionStatus: (locationPermissionStatus: 'prompt' | 'granted' | 'denied') => set({ locationPermissionStatus }),
       updateUserProfile: (profile) => set((state) => ({ userProfile: { ...state.userProfile, ...profile } })),
@@ -95,6 +99,7 @@ export const useAppStore = create<AppState>()(
         hasOnboarded: state.hasOnboarded,
         isDarkMode: state.isDarkMode,
         madhab: state.madhab,
+        language: state.language,
         scans: state.scans,
         userProfile: state.userProfile
       }), // don't persist pending image

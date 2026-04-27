@@ -4,6 +4,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { Button } from '../components/Button';
 import { Search, Camera, Loader2, RefreshCw, X } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { useTranslation } from '../hooks/useTranslation';
 
 export function Scanner() {
   const [manualBarcode, setManualBarcode] = useState('');
@@ -11,6 +12,7 @@ export function Scanner() {
   const [isScannerReady, setIsScannerReady] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { setPendingAnalysisImage } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -49,7 +51,7 @@ export function Scanner() {
         setScannerError(null);
       } catch (err) {
         console.error("Scanner start error:", err);
-        setScannerError("Could not start camera. Please ensure camera permissions are granted.");
+        setScannerError(t('scanner.error_permissions') || "Could not start camera. Please ensure camera permissions are granted.");
       }
     };
 
@@ -106,7 +108,7 @@ export function Scanner() {
         {!isScannerReady && !scannerError && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-20">
             <Loader2 size={40} className="animate-spin text-[#C9A84C] mb-4" />
-            <p className="text-sm font-bold tracking-widest uppercase opacity-60">Initializing Camera...</p>
+            <p className="text-sm font-bold tracking-widest uppercase opacity-60">{t('scanner.initializing') || 'Initializing Camera...'}</p>
           </div>
         )}
 
@@ -121,7 +123,7 @@ export function Scanner() {
               className="flex items-center gap-2 bg-white text-black px-6 py-3 rounded-xl font-bold text-xs uppercase"
             >
               <RefreshCw size={16} />
-              Retry Camera
+              {t('scanner.retry_camera') || 'Retry Camera'}
             </button>
           </div>
         )}
@@ -167,26 +169,26 @@ export function Scanner() {
           {isProcessingImage ? (
             <>
               <Loader2 size={20} className="animate-spin text-[#C9A84C]" />
-              <span className="text-white">Processing Photo...</span>
+              <span className="text-white">{t('scanner.processing_photo') || 'Processing Photo...'}</span>
             </>
           ) : (
             <>
               <Camera size={20} className="text-[#C9A84C]" />
-              <span>Snap Ingredients Photo</span>
+              <span>{t('scanner.snap_photo') || 'Snap Ingredients Photo'}</span>
             </>
           )}
         </button>
 
         <div className="flex items-center gap-3 w-full">
            <div className="h-px bg-white/10 flex-1"></div>
-           <span className="text-[10px] text-white/40 font-bold tracking-widest uppercase">Or Enter Barcode</span>
+           <span className="text-[10px] text-white/40 font-bold tracking-widest uppercase">{t('scanner.or_enter_barcode') || 'Or Enter Barcode'}</span>
            <div className="h-px bg-white/10 flex-1"></div>
         </div>
 
         <form onSubmit={handleManualSubmit} className="flex flex-row relative">
           <input 
             className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
-            placeholder="e.g. 3017620..."
+            placeholder={t('scanner.placeholder') || "e.g. 3017620..."}
             type="number"
             value={manualBarcode}
             onChange={(e) => setManualBarcode(e.target.value)}
@@ -204,7 +206,7 @@ export function Scanner() {
           className="w-full py-2 mt-1 text-[10px] font-bold tracking-widest uppercase text-white/40 hover:text-white transition-colors"
           onClick={() => navigate(-1)} 
         >
-          Cancel & Return
+          {t('scanner.cancel_return') || 'Cancel & Return'}
         </button>
       </div>
     </div>

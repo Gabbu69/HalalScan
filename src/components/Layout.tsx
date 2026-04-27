@@ -2,9 +2,11 @@ import React from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { Home, History, BookOpen, MoonStar, MessageCircle, User } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { useTranslation } from '../hooks/useTranslation';
 
 export function Layout() {
   const { isDarkMode } = useAppStore();
+  const { t } = useTranslation();
   
   return (
     <div className={`flex flex-col h-screen ${isDarkMode ? 'dark' : ''} bg-[#F9F5F0] dark:bg-[var(--color-dark-bg)] text-[#1a1a1a] font-nunito overflow-hidden`}>
@@ -24,26 +26,27 @@ export function Layout() {
 
       <nav className="flex-none bg-white dark:bg-[#1a2e22] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] border-t border-gray-200 dark:border-gray-800 transition-colors z-10 relative h-14 sm:h-16 flex items-center">
         <div className="flex flex-row justify-around max-w-md mx-auto w-full">
-          <NavItem to="/" icon={<Home size={22} />} />
-          <NavItem to="/history" icon={<History size={22} />} />
-          <NavItem to="/chat" icon={<MessageCircle size={22} />} />
-          <NavItem to="/knowledge" icon={<BookOpen size={22} />} />
-          <NavItem to="/profile" icon={<User size={22} />} />
+          <NavItem to="/" icon={<Home size={22} />} label={t('layout.home')} />
+          <NavItem to="/history" icon={<History size={22} />} label={t('layout.history')} />
+          <NavItem to="/chat" icon={<MessageCircle size={22} />} label={t('layout.chat')} />
+          <NavItem to="/knowledge" icon={<BookOpen size={22} />} label={t('layout.knowledge') || 'Knowledge'} />
+          <NavItem to="/profile" icon={<User size={22} />} label={t('layout.profile')} />
         </div>
       </nav>
     </div>
   );
 }
 
-function NavItem({ to, icon }: { to: string; icon: React.ReactNode }) {
+function NavItem({ to, icon, label }: { to: string; icon: React.ReactNode; label?: string }) {
   const location = useLocation();
   const isActive = location.pathname === to;
   return (
     <NavLink 
       to={to} 
-      className={`flex flex-col items-center justify-center p-2 rounded-full transition-all duration-200 ${isActive ? 'text-[#1B6B3A] dark:text-green-400 bg-[#1B6B3A]/10 dark:bg-green-400/10' : 'text-gray-300 dark:text-gray-500 hover:text-gray-400 dark:hover:text-gray-400'}`}
+      className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 ${isActive ? 'text-[#1B6B3A] dark:text-green-400 bg-[#1B6B3A]/10 dark:bg-green-400/10' : 'text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400'}`}
     >
       {icon}
+      {label && <span className="text-[9px] mt-1 font-bold">{label}</span>}
     </NavLink>
   );
 }

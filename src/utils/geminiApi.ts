@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { useAppStore } from '../store/useAppStore';
 
 const getAiClient = () => {
   const overrideKey = localStorage.getItem('gemini_api_key_override');
@@ -18,11 +19,13 @@ export const analyzeIngredientsWithGemini = async (productName: string, ingredie
     ? "Brief general dietary summary or advice regarding these ingredients"
     : "Brief advice for the Muslim consumer";
 
+  const language = useAppStore.getState().language;
+
   const prompt = `${roleContext}
 Product: ${productName}
 Ingredients: ${ingredients}
 
-Return ONLY a valid JSON object with the following exact structure:
+Return ONLY a valid JSON object with the following exact structure. CRITICAL INSTRUCTION: ALL string values in the JSON (except the keys and the 'verdict' itself) MUST be written in ${language}. This includes 'reason', 'recommendation', and any 'flagged_ingredients'.
 {
   "verdict": "HALAL" | "HARAM" | "MASHBOOH",
   "confidence": <number between 0-100>,
@@ -68,9 +71,11 @@ I've uploaded a picture of a product's ingredient list.
     ? "Brief general advice based on the ingredients"
     : "Brief advice";
 
+  const language = useAppStore.getState().language;
+
   const prompt = `${roleContext}
 
-Return ONLY a valid JSON object with the following exact structure ("ingredients" should be a string of what you extracted):
+Return ONLY a valid JSON object with the following exact structure ("ingredients" should be a string of what you extracted). CRITICAL INSTRUCTION: ALL string values in the JSON (except the keys and the 'verdict' itself) MUST be written in ${language}. This includes 'name', 'ingredients', 'reason', 'recommendation', and any 'flagged_ingredients'.
 {
   "name": "Extracted brand/product name if visible, or Unknown",
   "ingredients": "Extracted ingredients list",
@@ -123,10 +128,12 @@ export const askHalalAssistant = async (query: string, madhab: string) => {
     ? `You are "Scan AI", a helpful and knowledgeable dietary assistant focusing on clean eating, identifying animal-derived ingredients, hidden pork by-products, and alcohol content in everyday consumer products.`
     : `You are "HalalScan AI", a helpful, respectful, and highly knowledgeable Islamic dietary assistant. Focus on ${madhab} fiqh rulings for food, ingredients, and everyday consumer products.`;
 
+  const language = useAppStore.getState().language;
+
   const prompt = `${roleContext}
 The user is asking: "${query}"
 
-Provide a concise, direct, and well-structured answer. ${!isGeneral ? "If there is a difference of opinion, state it briefly. " : ""}Be conversational but authoritative.`;
+Provide a concise, direct, and well-structured answer. ${!isGeneral ? "If there is a difference of opinion, state it briefly. " : ""}Be conversational but authoritative. Please write your response in ${language}.`;
 
   try {
     const ai = getAiClient();
