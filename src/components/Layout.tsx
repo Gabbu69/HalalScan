@@ -12,7 +12,7 @@ export function Layout() {
     <div className={`flex flex-col h-screen ${isDarkMode ? 'dark' : ''} bg-[#F9F5F0] dark:bg-[var(--color-dark-bg)] text-[#1a1a1a] font-nunito overflow-hidden`}>
       <header className="w-full h-16 bg-[#1B6B3A] flex items-center justify-between px-6 sm:px-8 shadow-md border-b-4 border-[#C9A84C] flex-shrink-0 z-10 transition-colors">
         <div className="flex items-center gap-2">
-          <MoonStar size={24} className="text-[#C9A84C]" strokeWidth={2.5} />
+          <img src="/logo.jpg" alt="HalalScan Logo" className="w-8 h-8 rounded-lg shadow-sm border border-[#124d29]/20" />
           <h1 className="text-2xl font-amiri italic font-bold text-white tracking-wide">HalalScan</h1>
         </div>
         <div className="flex items-center">

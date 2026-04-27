@@ -240,7 +240,7 @@ export function Profile() {
              <Info size={14} /> {t('profile.about')}
           </h3>
           <div className="flex flex-col items-center justify-center my-4">
-             <ShieldCheck size={32} className="text-[#1B6B3A] dark:text-green-400 mb-2" />
+             <img src="/logo.jpg" alt="HalalScan Logo" className="w-16 h-16 rounded-2xl shadow-md border-2 border-[#1B6B3A]/20 dark:border-green-400/20 mb-3" />
              <h4 className="font-amiri italic font-bold text-lg text-gray-900 dark:text-white">HalalScan</h4>
           </div>
           <p className="font-nunito text-[10px] text-gray-600 dark:text-gray-300 leading-relaxed mb-4 text-center">
