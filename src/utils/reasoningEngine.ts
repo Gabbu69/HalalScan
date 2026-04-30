@@ -1,6 +1,45 @@
 export const KNOWLEDGE_BASE = {
-  haramKeywords: ['pork', 'lard', 'carmine', 'e120', 'cochineal', 'blood', 'alcohol', 'wine', 'beer', 'rum', 'bacon', 'ham'],
-  mashboohKeywords: ['gelatin', 'e471', 'e472', 'e481', 'glycerin', 'glycerol', 'whey', 'rennet', 'natural flavor', 'emulsifier']
+  haramKeywords: [
+    // --- Pork & Pork Derivatives ---
+    'pork', 'lard', 'bacon', 'ham', 'prosciutto', 'pepperoni', 'chorizo',
+    'pig fat', 'pork gelatin', 'pork enzymes', 'pancetta',
+    // --- Alcohol ---
+    'alcohol', 'ethanol', 'wine', 'beer', 'rum', 'vodka', 'whiskey',
+    'brandy', 'liqueur', 'sake', 'mirin',
+    // --- Blood Products ---
+    'blood', 'blood plasma', 'black pudding',
+    // --- Insect-Derived (Non-Halal by Majority) ---
+    'carmine', 'e120', 'cochineal', 'shellac', 'e904',
+    // --- E-Numbers (Confirmed Haram Sources) ---
+    'e441',  // Gelatin (pork-sourced by default in EU/US)
+    'e542',  // Bone phosphate (often pork)
+    'e920',  // L-Cysteine (commonly from pig bristles or human hair)
+    // --- Carnivorous / Predatory Animals ---
+    'crocodile', 'frog', 'snake',
+  ],
+  mashboohKeywords: [
+    // --- Ambiguous Gelatin & Emulsifiers ---
+    'gelatin', 'gelatine',
+    'e471', 'e472', 'e472a', 'e472b', 'e472c', 'e472e',
+    'e473', 'e474', 'e475', 'e476', 'e477', 'e481', 'e482', 'e483',
+    // --- Glycerides & Fatty Acid Esters ---
+    'glycerin', 'glycerol', 'mono and diglycerides', 'monoglycerides', 'diglycerides',
+    'e570',  // Stearic acid (animal or plant)
+    'calcium stearate', 'magnesium stearate',
+    // --- Whey & Dairy Processing ---
+    'whey', 'whey powder', 'casein', 'rennet',
+    // --- Vague / Unknown-Source Labels ---
+    'natural flavor', 'natural flavors', 'natural flavoring', 'natural flavouring',
+    'artificial flavor', 'emulsifier', 'stabilizer',
+    // --- Other Doubtful Additives ---
+    'e153',  // Vegetable carbon (processing may involve bone char)
+    'e422',  // Glycerol (source unknown)
+    'e470', 'e470a', 'e470b',  // Fatty acid salts
+    'e491', 'e492', 'e493', 'e494', 'e495',  // Sorbitan esters
+    'l-cysteine', 'lecithin', 'e322',  // Lecithin (soy vs animal)
+    'pepsin', 'lipase', 'trypsin',  // Enzymes (animal or microbial?)
+    'confectioner\'s glaze', 'pharmaceutical glaze',
+  ]
 };
 
 export type InferenceResult = {
