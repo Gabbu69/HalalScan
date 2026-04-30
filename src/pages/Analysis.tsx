@@ -92,7 +92,7 @@ export function Analysis() {
 
       } catch (error) {
         console.error(error);
-        setErrorMsg("We encountered an issue analyzing this product. Please check your internet connection or verify your API key in Settings.");
+        setErrorMsg("We encountered an issue analyzing this product. Please check your internet connection and try again.");
         setLoading(false);
       }
     };

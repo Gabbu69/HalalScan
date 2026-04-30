@@ -1,14 +1,6 @@
-import { GoogleGenAI } from '@google/genai';
 import { useAppStore } from '../store/useAppStore';
 
-const getAiClient = () => {
-  const overrideKey = localStorage.getItem('gemini_api_key_override');
-  const apiKey = overrideKey || process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("No API key available");
-  return new GoogleGenAI({ apiKey });
-};
-
-export const analyzeIngredientsWithGemini = async (productName: string, ingredients: string, madhab: string) => {
+export const analyzeProductWithGemini = async (productName: string, ingredients: string, madhab: string) => {
   const isGeneral = madhab === 'General';
   
   const roleContext = isGeneral 
@@ -35,20 +27,20 @@ Return ONLY a valid JSON object with the following exact structure. CRITICAL INS
 }`;
 
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-      }
+    const response = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
     });
 
-    const textResponse = response.text || "{}";
-    const jsonStr = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(jsonStr);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to analyze product');
+    }
+
+    return await response.json();
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    console.error("Backend Proxy Error (Text Analysis):", error);
     throw error;
   }
 };
@@ -87,11 +79,8 @@ Return ONLY a valid JSON object with the following exact structure ("ingredients
 }`;
 
   try {
-    const ai = getAiClient();
-    
-    // Safely parse base64 and mimeType
     let base64Data = imageBase64;
-    let mimeType = 'image/jpeg'; // default fallback
+    let mimeType = 'image/jpeg';
 
     if (imageBase64.includes('data:image')) {
       const parts = imageBase64.split(',');
@@ -101,22 +90,20 @@ Return ONLY a valid JSON object with the following exact structure ("ingredients
       }
     }
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        { text: prompt },
-        { inlineData: { data: base64Data, mimeType } }
-      ],
-      config: {
-        responseMimeType: 'application/json',
-      }
+    const response = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, imageBase64: base64Data, mimeType })
     });
 
-    const textResponse = response.text || "{}";
-    const jsonStr = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(jsonStr);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to analyze image');
+    }
+
+    return await response.json();
   } catch (error) {
-    console.error("Gemini Vision API Error:", error);
+    console.error("Backend Proxy Error (Image Analysis):", error);
     throw error;
   }
 };
@@ -136,14 +123,21 @@ The user is asking: "${query}"
 Provide a concise, direct, and well-structured answer. ${!isGeneral ? "If there is a difference of opinion, state it briefly. " : ""}Be conversational but authoritative. Please write your response in ${language}.`;
 
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
     });
-    return response.text;
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch chat response');
+    }
+
+    const data = await response.json();
+    return data.text;
   } catch (error) {
-    console.error("Gemini Chat API Error:", error);
+    console.error("Backend Proxy Error (Chat):", error);
     throw error;
   }
 };
