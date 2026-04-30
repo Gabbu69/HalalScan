@@ -1,5 +1,5 @@
 import { runRuleBasedInference, InferenceResult } from './reasoningEngine';
-import { analyzeIngredientsWithGemini, analyzeImageWithGemini } from './geminiApi';
+import { analyzeProductWithGemini, analyzeImageWithGemini } from './geminiApi';
 
 export type IntegratedAnalysisResult = {
   finalVerdict: 'HALAL' | 'HARAM' | 'MASHBOOH';
@@ -60,7 +60,7 @@ export const runIntegratedAnalysis = async (productName: string, ingredients: st
   integrationLogs.push(`KR&R Engine completed. Preliminary status: ${krrResult.status}.`);
 
   integrationLogs.push('Dispatching payload to Machine Learning Inferencing endpoint...');
-  const mlResult = await analyzeIngredientsWithGemini(productName, ingredients, madhab);
+  const mlResult = await analyzeProductWithGemini(productName, ingredients, madhab);
   integrationLogs.push(`ML Engine completed. AI verdict: ${mlResult.verdict}.`);
 
   return buildConsensus(mlResult, krrResult, integrationLogs);
