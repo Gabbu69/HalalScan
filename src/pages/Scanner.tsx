@@ -31,21 +31,31 @@ export function Scanner() {
           aspectRatio: 1.0
         };
 
-        // Prefer back camera
-        await html5QrCode.start(
-          { facingMode: "environment" }, 
-          config, 
-          (decodedText) => {
-            html5QrCode.stop().then(() => {
-              navigate(`/analysis?barcode=${decodedText}`);
-            }).catch(() => {
-              navigate(`/analysis?barcode=${decodedText}`);
-            });
-          },
-          (errorMessage) => {
-            // parse error, ignore
+        const successCallback = (decodedText: string) => {
+          html5QrCode.stop().then(() => {
+            navigate(`/analysis?barcode=${decodedText}`);
+          }).catch(() => {
+            navigate(`/analysis?barcode=${decodedText}`);
+          });
+        };
+
+        const errorCallback = (errorMessage: string) => {
+          // parse error, ignore
+        };
+
+        try {
+          // Try preferred back camera first
+          await html5QrCode.start({ facingMode: "environment" }, config, successCallback, errorCallback);
+        } catch (envErr) {
+          console.log("Environment camera failed, falling back to any available camera:", envErr);
+          // If environment fails (e.g. on laptops), get all cameras and use the first one
+          const devices = await Html5Qrcode.getCameras();
+          if (devices && devices.length > 0) {
+            await html5QrCode.start(devices[0].id, config, successCallback, errorCallback);
+          } else {
+            throw new Error("No cameras found on device");
           }
-        );
+        }
         
         setIsScannerReady(true);
         setScannerError(null);
