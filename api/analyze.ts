@@ -37,8 +37,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const textResponse = response.text || "{}";
     const jsonStr = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
     return res.status(200).json(JSON.parse(jsonStr));
-  } catch (error) {
+  } catch (error: any) {
     console.error("Backend Gemini API Error:", error);
-    return res.status(500).json({ error: error.message || 'Failed to process request' });
+    let errorMessage = error.message || 'Failed to process request';
+    try {
+      const parsed = JSON.parse(errorMessage);
+      if (parsed.error && parsed.error.message) {
+        errorMessage = parsed.error.message;
+      }
+    } catch (e) {}
+    return res.status(500).json({ error: errorMessage });
   }
 }

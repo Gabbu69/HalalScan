@@ -92,7 +92,8 @@ export function Analysis() {
 
       } catch (error) {
         console.error(error);
-        setErrorMsg("We encountered an issue analyzing this product. Please check your internet connection and try again.");
+        const message = error instanceof Error ? error.message : "We encountered an issue analyzing this product. Please check your internet connection and try again.";
+        setErrorMsg(message);
         setLoading(false);
       }
     };
