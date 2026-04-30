@@ -94,11 +94,44 @@ export function Scanner() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const base64 = event.target?.result as string;
-      setPendingAnalysisImage(base64);
-      // Let the UI breathe before navigating
-      setTimeout(() => {
-         navigate('/analysis?type=image');
-      }, 300);
+      
+      // Compress image to ensure it fits under Vercel's 4.5MB payload limit
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_DIMENSION = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_DIMENSION) {
+            height *= MAX_DIMENSION / width;
+            width = MAX_DIMENSION;
+          }
+        } else {
+          if (height > MAX_DIMENSION) {
+            width *= MAX_DIMENSION / height;
+            height = MAX_DIMENSION;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+          setPendingAnalysisImage(compressedBase64);
+        } else {
+          // Fallback if canvas fails
+          setPendingAnalysisImage(base64);
+        }
+
+        setTimeout(() => {
+           navigate('/analysis?type=image');
+        }, 100);
+      };
+      img.src = base64;
     };
     reader.readAsDataURL(file);
   };
