@@ -59,8 +59,11 @@ export const runRuleBasedInference = (ingredientsText: string): InferenceResult 
   
   let status: 'HALAL' | 'HARAM' | 'MASHBOOH' = 'HALAL';
 
+  const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
   KNOWLEDGE_BASE.haramKeywords.forEach(keyword => {
-    if (text.includes(keyword)) {
+    const regex = new RegExp(`\\b${escapeRegExp(keyword)}\\b`, 'i');
+    if (regex.test(text)) {
       flags.push({ ingredient: keyword, type: 'HARAM' });
       logicPath.push(`Rule matched: found HARAM keyword "${keyword}". Status escalated to HARAM.`);
       status = 'HARAM';
@@ -68,7 +71,8 @@ export const runRuleBasedInference = (ingredientsText: string): InferenceResult 
   });
 
   KNOWLEDGE_BASE.mashboohKeywords.forEach(keyword => {
-    if (text.includes(keyword)) {
+    const regex = new RegExp(`\\b${escapeRegExp(keyword)}\\b`, 'i');
+    if (regex.test(text)) {
       flags.push({ ingredient: keyword, type: 'MASHBOOH' });
       logicPath.push(`Rule matched: found MASHBOOH keyword "${keyword}".`);
       if (status !== 'HARAM') {
