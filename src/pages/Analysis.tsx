@@ -12,7 +12,16 @@ export function Analysis() {
   const navigate = useNavigate();
   const barcode = searchParams.get('barcode');
   const type = searchParams.get('type');
-  const { addScan, madhab, pendingAnalysisImage, setPendingAnalysisImage, pendingAnalysisText, setPendingAnalysisText } = useAppStore();
+  const {
+    addScan,
+    madhab,
+    pendingAnalysisImage,
+    setPendingAnalysisImage,
+    pendingAnalysisImageOcrText,
+    setPendingAnalysisImageOcrText,
+    pendingAnalysisText,
+    setPendingAnalysisText
+  } = useAppStore();
   const { t } = useTranslation();
   
   const [loading, setLoading] = useState(true);
@@ -31,7 +40,7 @@ export function Analysis() {
       try {
         if (type === 'image' && pendingAnalysisImage) {
           setStep('Running ML Framework & KR&R Engine...');
-          const integratedData = await runIntegratedImageAnalysis(pendingAnalysisImage, madhab);
+          const integratedData = await runIntegratedImageAnalysis(pendingAnalysisImage, madhab, pendingAnalysisImageOcrText || undefined);
           
           const finalScan: ScanRecord = {
             id: Date.now().toString(),
@@ -52,6 +61,7 @@ export function Analysis() {
           setResult(finalScan);
           useAppStore.getState().addScan(finalScan);
           setPendingAnalysisImage(null); // clear it
+          setPendingAnalysisImageOcrText(null);
           setLoading(false);
           return;
         }
@@ -126,7 +136,18 @@ export function Analysis() {
     };
 
     runAnalysis();
-  }, [barcode, type, madhab, navigate, pendingAnalysisImage, setPendingAnalysisImage, pendingAnalysisText, setPendingAnalysisText]);
+  }, [
+    barcode,
+    type,
+    madhab,
+    navigate,
+    pendingAnalysisImage,
+    setPendingAnalysisImage,
+    pendingAnalysisImageOcrText,
+    setPendingAnalysisImageOcrText,
+    pendingAnalysisText,
+    setPendingAnalysisText
+  ]);
 
   if (errorMsg) {
     return (

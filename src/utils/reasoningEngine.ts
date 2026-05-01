@@ -19,6 +19,32 @@ export const KNOWLEDGE_BASE = {
   ]
 };
 
+const OCR_HARAM_PATTERNS: Array<{ ingredient: string; ruleId: string; patterns: RegExp[] }> = [
+  {
+    ingredient: 'pork',
+    ruleId: 'R008',
+    patterns: [
+      /(^|[^a-z0-9])p\s*[o0]\s*r\s*[kx]([^a-z0-9]|$)/i,
+      /(^|[^a-z0-9])p\s*[o0]\s*r\s*[kx]\s*(?:&|and|n)?\s*b\s*e\s*a\s*n\s*s?([^a-z0-9]|$)/i,
+      /(^|[^a-z0-9])p\s*[o0]\s*r\s*[kx]\s*b\s*e\s*a\s*n\s*s?([^a-z0-9]|$)/i
+    ]
+  },
+  {
+    ingredient: 'bacon',
+    ruleId: 'R008',
+    patterns: [
+      /(^|[^a-z0-9])b\s*[a4]\s*c\s*[o0]\s*n([^a-z0-9]|$)/i
+    ]
+  },
+  {
+    ingredient: 'ham',
+    ruleId: 'R008',
+    patterns: [
+      /(^|[^a-z0-9])h\s*[a4]\s*m([^a-z0-9]|$)/i
+    ]
+  }
+];
+
 export type InferenceResult = {
   status: 'HALAL' | 'HARAM' | 'MASHBOOH' | 'UNKNOWN';
   confidence: number;
@@ -43,6 +69,10 @@ export const runRuleBasedInference = (ingredientsText: string): InferenceResult 
   };
 
   const text = normalizeText(ingredientsText);
+  const ocrNormalizedText = text
+    .replace(/0/g, 'o')
+    .replace(/4/g, 'a')
+    .replace(/8/g, 'b');
   const tokens = text.match(/\b[a-z0-9-]+\b/g) || [];
   const flags: InferenceResult['flags'] = [];
   const logicPath: string[] = ['[FORWARD CHAINING INIT] Extracting base facts from ingredients.'];
@@ -83,9 +113,18 @@ export const runRuleBasedInference = (ingredientsText: string): InferenceResult 
 
   // Check Keywords
   KNOWLEDGE_BASE.haramKeywords.forEach(keyword => {
-    if (hasExactTerm(text, keyword)) {
+    if (hasExactTerm(text, keyword) || hasExactTerm(ocrNormalizedText, keyword)) {
       flags.push({ ingredient: keyword, type: 'HARAM', ruleId: 'R008' });
       logicPath.push(`Rule match [R008/etc]: Found Haram keyword "${keyword}".`);
+      haramScore += 100;
+    }
+  });
+
+  OCR_HARAM_PATTERNS.forEach(rule => {
+    const alreadyFlagged = flags.some(flag => flag.ingredient === rule.ingredient && flag.type === 'HARAM');
+    if (!alreadyFlagged && rule.patterns.some(pattern => pattern.test(text))) {
+      flags.push({ ingredient: rule.ingredient, type: 'HARAM', ruleId: rule.ruleId });
+      logicPath.push(`OCR-tolerant rule match [${rule.ruleId}]: Found Haram keyword variant "${rule.ingredient}".`);
       haramScore += 100;
     }
   });

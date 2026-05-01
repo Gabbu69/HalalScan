@@ -24,6 +24,7 @@ interface AppState {
   language: string;
   scans: ScanRecord[];
   pendingAnalysisImage: string | null;
+  pendingAnalysisImageOcrText: string | null;
   pendingAnalysisText: string | null;
   userLocation: { lat: number; lng: number } | null;
   locationPermissionStatus: 'prompt' | 'granted' | 'denied';
@@ -42,6 +43,7 @@ interface AppState {
   deleteScan: (id: string) => void;
   clearScans: () => void;
   setPendingAnalysisImage: (base64: string | null) => void;
+  setPendingAnalysisImageOcrText: (text: string | null) => void;
   setPendingAnalysisText: (text: string | null) => void;
 
   getStats: () => { total: number; halal: number; haram: number; mashbooh: number };
@@ -56,6 +58,7 @@ export const useAppStore = create<AppState>()(
       language: "English",
       scans: [],
       pendingAnalysisImage: null,
+      pendingAnalysisImageOcrText: null,
       pendingAnalysisText: null,
       userLocation: null,
       locationPermissionStatus: 'prompt',
@@ -85,6 +88,7 @@ export const useAppStore = create<AppState>()(
       })),
       clearScans: () => set({ scans: [] }),
       setPendingAnalysisImage: (base64) => set({ pendingAnalysisImage: base64 }),
+      setPendingAnalysisImageOcrText: (text) => set({ pendingAnalysisImageOcrText: text }),
       setPendingAnalysisText: (text) => set({ pendingAnalysisText: text }),
 
       getStats: () => {

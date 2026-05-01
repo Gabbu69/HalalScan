@@ -83,7 +83,7 @@ export const runIntegratedAnalysis = async (productName: string, ingredients: st
   return buildConsensus(mlResult, krrResult, integrationLogs);
 };
 
-export const runIntegratedImageAnalysis = async (imageBase64: string, madhab: string): Promise<IntegratedAnalysisResult> => {
+export const runIntegratedImageAnalysis = async (imageBase64: string, madhab: string, localOcrText?: string): Promise<IntegratedAnalysisResult> => {
   const integrationLogs: string[] = ['Initializing Integrated Vision Pipeline (ML Image Extraction -> KR&R -> ML Deductive)'];
   
   // Step 1: Vision Extraction & Initial ML Analysis
@@ -94,7 +94,29 @@ export const runIntegratedImageAnalysis = async (imageBase64: string, madhab: st
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Gemini vision API is unavailable.';
     integrationLogs.push(`WARNING: Vision ML unavailable. ${message}`);
-    integrationLogs.push('Offline image fallback engaged. OCR cannot run locally, so the user must paste ingredients for full KR&R analysis.');
+
+    if (localOcrText?.trim()) {
+      const extractedText = localOcrText.trim();
+      integrationLogs.push(`Offline browser OCR fallback extracted text: "${extractedText}".`);
+      integrationLogs.push('Routing local OCR text through KR&R and local ML fallback.');
+
+      const krrResult = runRuleBasedInference(extractedText);
+      const fallbackResult = scoreIngredients(extractedText);
+      const influencingTerms = fallbackResult.influencingTerms.join(', ') || 'OCR text matched the rule base';
+      mlResult = {
+        verdict: fallbackResult.verdict,
+        confidence: Math.round(fallbackResult.confidence * 100),
+        reason: `(Offline OCR Active) Local browser OCR extracted label text and the local statistical model evaluated it. Key influencing terms: ${influencingTerms}.`,
+        flagged_ingredients: [],
+        recommendation: 'Verify the extracted text against the package label. If the label contains pork, alcohol, or a haram E-number, avoid the product.',
+        name: 'Photo Scan (Local OCR)',
+        ingredients: extractedText
+      };
+
+      return buildConsensus(mlResult, krrResult, integrationLogs);
+    }
+
+    integrationLogs.push('Offline image fallback engaged, but local OCR found no usable text. The user must paste ingredients for full KR&R analysis.');
 
     const krrResult = runRuleBasedInference('');
     return {

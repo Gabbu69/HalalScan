@@ -10,11 +10,12 @@ export function Scanner() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [manualText, setManualText] = useState('');
   const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [imageProcessingStep, setImageProcessingStep] = useState('Processing Photo...');
   const [isScannerReady, setIsScannerReady] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { setPendingAnalysisImage, setPendingAnalysisText } = useAppStore();
+  const { setPendingAnalysisImage, setPendingAnalysisImageOcrText, setPendingAnalysisText } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
 
@@ -101,6 +102,7 @@ export function Scanner() {
     if (!file) return;
 
     setIsProcessingImage(true);
+    setImageProcessingStep('Preparing Photo...');
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -108,9 +110,9 @@ export function Scanner() {
       
       // Compress image to ensure it fits under Vercel's 4.5MB payload limit
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         const canvas = document.createElement('canvas');
-        const MAX_DIMENSION = 1200;
+        const MAX_DIMENSION = 1600;
         let width = img.width;
         let height = img.height;
 
@@ -129,13 +131,28 @@ export function Scanner() {
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
+        let compressedBase64 = base64;
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+          compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
           setPendingAnalysisImage(compressedBase64);
         } else {
           // Fallback if canvas fails
           setPendingAnalysisImage(base64);
+        }
+
+        setPendingAnalysisImageOcrText(null);
+        setImageProcessingStep('Reading Label Text...');
+        try {
+          const { extractTextFromImage } = await import('../utils/localOcr');
+          const ocrText = await extractTextFromImage(compressedBase64);
+          const fileNameText = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
+          const combinedText = [ocrText, fileNameText].filter(Boolean).join(' ').trim();
+          setPendingAnalysisImageOcrText(combinedText || null);
+        } catch (ocrError) {
+          console.warn('Local OCR failed, Gemini/offline fallback will handle image analysis:', ocrError);
+          const fileNameText = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+          setPendingAnalysisImageOcrText(fileNameText || null);
         }
 
         setTimeout(() => {
@@ -223,7 +240,7 @@ export function Scanner() {
           {isProcessingImage ? (
             <>
               <Loader2 size={20} className="animate-spin text-[#C9A84C]" />
-              <span className="text-white">{t('scanner.processing_photo') || 'Processing Photo...'}</span>
+              <span className="text-white">{imageProcessingStep}</span>
             </>
           ) : (
             <>
