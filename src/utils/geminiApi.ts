@@ -1,4 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
+import { buildOfflineAssistantResponse } from './offlineAssistant';
 
 export const analyzeProductWithGemini = async (productName: string, ingredients: string, madhab: string) => {
   const isGeneral = madhab === 'General';
@@ -40,7 +41,7 @@ Return ONLY a valid JSON object with the following exact structure. CRITICAL INS
 
     return await response.json();
   } catch (error) {
-    console.error("Backend Proxy Error (Text Analysis):", error);
+    console.warn("Backend Proxy Warning (Text Analysis):", error);
     throw error;
   }
 };
@@ -103,7 +104,7 @@ Return ONLY a valid JSON object with the following exact structure ("ingredients
 
     return await response.json();
   } catch (error) {
-    console.error("Backend Proxy Error (Image Analysis):", error);
+    console.warn("Backend Proxy Warning (Image Analysis):", error);
     throw error;
   }
 };
@@ -137,7 +138,7 @@ Provide a concise, direct, and well-structured answer. ${!isGeneral ? "If there 
     const data = await response.json();
     return data.text;
   } catch (error) {
-    console.error("Backend Proxy Error (Chat):", error);
-    throw error;
+    console.warn("Backend Proxy Warning (Chat):", error);
+    return buildOfflineAssistantResponse(query, madhab);
   }
 };

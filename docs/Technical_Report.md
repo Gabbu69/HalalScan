@@ -1,54 +1,97 @@
 # Technical Report: HalalScan Neuro-Symbolic AI System
 
 ## 1. System Architecture
-HalalScan is designed as an end-to-end, full-stack application leveraging a hybrid Neuro-Symbolic AI architecture. The system integrates a generative Machine Learning (ML) model with a deterministic Knowledge Representation and Reasoning (KR&R) engine to ensure high accuracy and absolute reliability in dietary compliance.
 
-### Architecture Components:
-1. **Frontend Interface (React/Vite)**: Handles user input, including text queries and image uploads via camera integration.
-2. **ML Model (Google Gemini API)**: Acts as the neural component. It performs complex unstructured data tasks:
-   - **Vision (OCR)**: Extracts ingredient lists from noisy images of product labels.
-   - **Semantic Understanding**: Parses chemical names and provides human-readable contextual recommendations based on the selected Islamic jurisprudence (Madhab).
-3. **Knowledge Base (`halalRules.ts`)**: A structured, symbolic database defining strict categories: *HALAL* (Permissible), *HARAM* (Forbidden), and *MASHBOOH* (Doubtful) alongside explicit keyword triggers (e.g., E120, Pork, Gelatin).
-4. **Reasoning Engine (`reasoningEngine.ts`)**: A rule-based inference system that scans extracted data against the Knowledge Base using deterministic string-matching and logic gates to assign an absolute status.
-5. **System Integration (`systemIntegration.ts`)**: The consensus builder. It routes data through both the ML and KR&R engines, comparing their outputs and applying override logic.
+HalalScan is an end-to-end web application using a hybrid neuro-symbolic AI architecture. The system combines probabilistic machine learning with deterministic Knowledge Representation and Reasoning (KR&R) so ingredient analysis is both flexible and explainable.
+
+### Architecture Components
+
+1. **Frontend Interface (React/Vite)**
+   Handles manual ingredient input, barcode scans, image uploads, scan history, evaluation dashboards, and architecture trace display.
+
+2. **ML Layer**
+   - **Gemini 2.5 Flash:** Used through Vercel serverless API routes for OCR, semantic parsing, and natural-language recommendations.
+   - **Local fallback ML model:** `src/utils/mlModel.ts` implements a TF-IDF weighted Multinomial Naive Bayes classifier trained on 48 labeled ingredient samples. It uses unigram, bigram, and trigram features, producing a 434-feature vocabulary.
+
+3. **Knowledge Base (`halalRules.ts` and `reasoningEngine.ts`)**
+   Defines 15 halal-domain rules, E-number categories, and 65 keyword triggers covering pork derivatives, alcohol, insects/colorants, enzymes, emulsifiers, flavorings, and doubtful animal-derived ingredients.
+
+4. **Reasoning Engine (`reasoningEngine.ts`)**
+   Extracts facts from ingredients, applies symbolic rules, normalizes E-number variants such as `E-120`, avoids substring false positives such as `E1200`, and resolves conflicts using `HARAM > MASHBOOH > HALAL`.
+
+5. **System Integration (`systemIntegration.ts`)**
+   Combines ML predictions with KR&R results. Explicit KR&R violations override probabilistic ML output, which is essential for religious compliance where known forbidden ingredients cannot be treated as probabilistic suggestions.
 
 ## 2. Implementation Details
 
-### ML Model Implementation
-The system utilizes a pre-trained Large Language Model (LLM/LVM). 
-- For text queries, the input is wrapped in a strict system prompt enforcing JSON output with fields for `verdict`, `confidence`, and `reason`.
-- For image queries, a multimodal pipeline is triggered where the ML model simultaneously performs OCR text extraction and preliminary dietary assessment.
+### 2.1 ML Model Implementation
 
-### KR&R Implementation
-The KR&R engine operates entirely deterministically. It ingests the ingredient string (either typed by the user or extracted by the ML model's OCR step) and executes a multi-pass scan against the `KNOWLEDGE_BASE` arrays.
-- **Rule Escalation**: The reasoning engine maintains a state machine. If a "MASHBOOH" keyword is found, the state escalates from HALAL to MASHBOOH. If a "HARAM" keyword is found, the state escalates immediately to HARAM and locks.
+The project has two ML paths:
 
-### System Integration & Consensus Logic
-The core novelty of the implementation lies in `buildConsensus()`. Because LLMs are probabilistic and prone to hallucinations (e.g., confidently stating that "Bacon flavor" is Halal if prompted incorrectly), the system does not blindly trust the ML output.
-- **Veto Power**: If the ML model returns "HALAL" but the KR&R engine detects a "HARAM" keyword, the KR&R engine explicitly overrides the ML verdict. The system logs a `CRITICAL` integration warning, forces the final verdict to "HARAM", and appends the explicit rule violation to the reason.
+- **Primary ML path:** Gemini analyzes text or images and returns structured JSON containing verdict, confidence, flagged ingredients, reason, and recommendation.
+- **Offline fallback path:** If Gemini is unavailable, the local Naive Bayes classifier evaluates ingredient text. This prevents the app from becoming unusable when the external API fails.
+
+The local model performs:
+
+- text normalization;
+- E-number normalization;
+- unigram, bigram, and trigram feature extraction;
+- TF-IDF feature weighting;
+- Multinomial Naive Bayes classification;
+- softmax confidence scoring;
+- extraction of influencing terms for interpretability.
+
+### 2.2 Knowledge Base Design
+
+The knowledge base has two layers:
+
+- `HALAL_RULES`: human-readable rule entries with ID, category, title, explanation, and source.
+- `KNOWLEDGE_BASE` and `ENUMBERS_LIST`: machine-readable triggers used by the reasoning engine.
+
+This separation supports both grading/reporting needs and executable inference.
+
+### 2.3 Reasoning Engine
+
+The rule engine uses a forward-chaining-style process:
+
+1. Extract base facts from the ingredient string.
+2. Apply E-number rules.
+3. Apply HARAM keyword rules.
+4. Apply MASHBOOH keyword rules.
+5. Resolve conflicts with the priority order `HARAM > MASHBOOH > HALAL`.
+6. Return a verdict, confidence, flags, and logic path.
+
+### 2.4 System Integration
+
+The integrated pipeline runs KR&R and ML, then applies consensus logic:
+
+- If KR&R finds HARAM, final verdict becomes HARAM even if ML says HALAL.
+- If KR&R finds MASHBOOH and ML says HALAL, final verdict becomes MASHBOOH.
+- If both systems agree, the result is returned with architecture logs.
 
 ## 3. Results and Evaluation
 
-### 3.1 Evaluation Methodology
-To objectively measure the system's effectiveness, a curated evaluation dataset of **30 consumer products** was constructed with balanced class distribution: 10 HALAL, 10 HARAM, and 10 MASHBOOH products. Each product includes a realistic ingredient list and a ground-truth label verified by domain knowledge. The KR&R engine was evaluated independently against this dataset to measure the deterministic rule-based system's standalone performance.
+### 3.1 Local ML Fallback Evaluation
 
-### 3.2 KR&R Engine Performance (Rule-Based Inference)
+Evaluation file: `src/utils/modelEvaluation.ts`
 
 | Metric | Score |
 |--------|-------|
-| **Overall Accuracy** | 100% (30/30) |
-| **Macro Avg F1** | 1.00 |
-| **Weighted Avg F1** | 1.00 |
+| Accuracy | 100.0% (30/30) |
+| Macro Avg F1 | 1.00 |
+| Weighted Avg F1 | 1.00 |
 
-#### Per-Class Metrics
+### 3.2 KR&R Engine Evaluation
 
-| Class | Precision | Recall | F1-Score | Support |
-|-------|-----------|--------|----------|---------|
-| HALAL | 100% | 100% | 100% | 10 |
-| HARAM | 100% | 100% | 100% | 10 |
-| MASHBOOH | 100% | 100% | 100% | 10 |
+Evaluation file: `src/utils/evaluateModel.ts`
 
-#### Confusion Matrix
+| Metric | Score |
+|--------|-------|
+| Accuracy | 100.0% (30/30) |
+| Macro Avg F1 | 1.00 |
+| Weighted Avg F1 | 1.00 |
+
+#### KR&R Confusion Matrix
 
 | Actual \ Predicted | HALAL | HARAM | MASHBOOH |
 |--------------------|-------|-------|----------|
@@ -56,23 +99,32 @@ To objectively measure the system's effectiveness, a curated evaluation dataset 
 | **HARAM** | 0 | 10 | 0 |
 | **MASHBOOH** | 0 | 0 | 10 |
 
-#### Analysis of Results
-- **HARAM Detection (100% Recall)**: The KR&R engine achieves perfect recall for HARAM products—every product containing pork, alcohol, blood, or carmine was correctly identified. This is the most critical metric for a compliance system, as false negatives (missing a Haram ingredient) could violate religious dietary law.
-- **HALAL Detection (100% Precision & Recall)**: All genuinely Halal products were correctly identified as Halal, with no false positives.
-- **MASHBOOH Detection (100% Recall)**: After expanding the Knowledge Base to 60+ keywords covering enzymes (pepsin, lipase, trypsin), emulsifiers (E471–E483), glycerides, whey derivatives, lecithin, and confectioner's glaze, the KR&R engine successfully identifies all doubtful products. The expanded KB addresses the typical weakness of pure rule-based systems.
+### 3.3 Key Fixes From Evaluation
 
-### 3.3 Hybrid System Advantages
+The previous KR&R evaluation missed `prosciutto`, classifying it as HALAL. The knowledge base now includes additional pork-derived terms such as prosciutto, pancetta, guanciale, mortadella, coppa, speck, jamon, serrano ham, and chicharron.
 
-The hybrid approach demonstrated significant advantages over a pure ML or pure KR&R approach:
-- **Pure KR&R Failure Case (Without Expanded KB)**: Prior to KB expansion, the rule engine failed on ingredient synonyms and non-standard phrasings. The expanded Knowledge Base (60+ keywords) significantly reduces this gap, achieving 100% accuracy on the evaluation dataset.
-- **Pure ML Failure Case**: Prone to hallucinations or ignoring strict technical rules if the training data is ambiguous. In testing, the LLM occasionally classified "E120" as HALAL when prompted without strict guardrails.
-- **Hybrid Success**: By using the ML model to extract and normalize text (handling typos and synonyms contextually) and then feeding that normalized text into the KR&R engine, the system achieved a near **0% false-positive rate** for strictly forbidden items. The KR&R veto mechanism ensures that even if the ML hallucinates, known HARAM ingredients are always caught.
+The E-number matcher was also improved from substring matching to exact normalized matching. This means:
+
+- `E-120` correctly matches the HARAM additive `E120`.
+- `E1200` no longer accidentally matches `E120`.
 
 ## 4. Limitations and Future Work
-- **Brittleness of Rules**: The symbolic Knowledge Base requires manual updating. If a new artificial additive is invented, it will not be flagged until a human adds it to the Knowledge Base. The current KB contains ~60+ keywords but real-world food science has thousands of additives.
-- **Latency**: Running both inference engines sequentially (especially the multimodal vision step) introduces latency of 2-5 seconds over a purely local heuristic check.
-- **MASHBOOH Recall Gap**: The deterministic engine struggles with doubtful ingredients that use non-standard labeling. This is partially mitigated by the ML layer but represents an ongoing challenge.
-- **Language Dependency**: The KR&R keyword matching operates on English text. While the ML model handles multilingual labels via its training, the rule engine would miss non-English ingredient names.
-- **No Continuous Learning**: Currently no feedback loop exists between the ML model and the KR&R Knowledge Base. 
-- **Future Work**: (1) Implementing a continuous learning loop where the ML model can propose new rules to be added to the KR&R Knowledge Base based on updated scientific literature, subject to human expert review. (2) Expanding the evaluation dataset to 100+ products with real-world scanned labels. (3) Adding support for multilingual keyword matching in the KR&R engine.
 
+- The evaluation datasets are balanced and useful for coursework, but still small. A stronger final version should include 100+ real products from scanned labels.
+- The local ML model is intentionally lightweight. It is interpretable and offline-capable, but Gemini remains stronger for OCR, multilingual text, and semantic ambiguity.
+- Certification logic exists as a knowledge-base rule, but actual halal-logo image recognition is not yet implemented.
+- The rule engine is English-focused. Multilingual keyword dictionaries should be added for Malay, Arabic, Indonesian, and common imported-food terms.
+- The knowledge base needs ongoing expert maintenance for new additives, new synonyms, and regional ingredient names.
+
+## 5. Reproducibility
+
+Run:
+
+```bash
+npm install
+npm run evaluate
+npm run lint
+npm run build
+```
+
+The evaluation command prints local ML metrics and KR&R metrics, including confusion matrices and failed cases.

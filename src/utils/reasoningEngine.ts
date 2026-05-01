@@ -4,13 +4,18 @@ import { ENUMBERS_LIST, HALAL_RULES } from '../constants/halalRules';
 export const KNOWLEDGE_BASE = {
   haramKeywords: [
     'pork', 'lard', 'bacon', 'ham', 'pepperoni', 'chorizo', 'pork fat', 'pork gelatin',
+    'pork belly', 'pork blood', 'pork enzymes', 'pork rinds', 'prosciutto', 'pancetta',
+    'guanciale', 'mortadella', 'coppa', 'speck', 'jamon', 'jamon serrano', 'serrano ham',
+    'chicharron',
     'alcohol', 'ethanol', 'wine', 'beer', 'rum', 'vodka', 'whiskey', 'brandy', 'liqueur',
+    'bourbon', 'sake', 'sherry', 'marsala', 'cognac', 'mirin',
     'blood', 'carmine', 'cochineal', 'shellac', 'bone phosphate', 'l-cysteine'
   ],
   mashboohKeywords: [
     'gelatin', 'gelatine', 'glycerin', 'glycerol', 'mono and diglycerides', 'monoglycerides', 'diglycerides',
     'calcium stearate', 'magnesium stearate', 'whey', 'rennet', 'natural flavors', 'artificial flavor',
-    'emulsifier', 'stabilizer', 'lecithin', 'pepsin', 'lipase', 'trypsin'
+    'emulsifier', 'stabilizer', 'lecithin', 'soy lecithin', 'confectioner\'s glaze',
+    'confectioners glaze', 'pepsin', 'lipase', 'trypsin'
   ]
 };
 
@@ -26,7 +31,18 @@ export const runRuleBasedInference = (ingredientsText: string): InferenceResult 
     return { status: 'UNKNOWN', confidence: 0, flags: [], logicPath: ['No base facts provided.'] };
   }
   
-  const text = ingredientsText.toLowerCase();
+  const normalizeText = (value: string) => value
+    .toLowerCase()
+    .replace(/[‐‑‒–—]/g, '-')
+    .replace(/\be[\s-]+(?=\d)/g, 'e');
+
+  const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const hasExactTerm = (source: string, term: string) => {
+    const normalizedTerm = escapeRegExp(normalizeText(term));
+    return new RegExp(`(^|[^a-z0-9])${normalizedTerm}([^a-z0-9]|$)`, 'i').test(source);
+  };
+
+  const text = normalizeText(ingredientsText);
   const tokens = text.match(/\b[a-z0-9-]+\b/g) || [];
   const flags: InferenceResult['flags'] = [];
   const logicPath: string[] = ['[FORWARD CHAINING INIT] Extracting base facts from ingredients.'];
@@ -40,11 +56,9 @@ export const runRuleBasedInference = (ingredientsText: string): InferenceResult 
   let mashboohScore = 0;
   let halalScore = 0;
 
-  const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
   // Check E-Numbers
   ENUMBERS_LIST.HARAM.forEach(enumNum => {
-    if (text.includes(enumNum.toLowerCase())) {
+    if (hasExactTerm(text, enumNum)) {
       flags.push({ ingredient: enumNum, type: 'HARAM', ruleId: 'R001' });
       logicPath.push(`Rule match [R001]: Found Haram E-Number ${enumNum}.`);
       haramScore += 100; // High weight for definitive haram
@@ -52,7 +66,7 @@ export const runRuleBasedInference = (ingredientsText: string): InferenceResult 
   });
 
   ENUMBERS_LIST.MASHBOOH.forEach(enumNum => {
-    if (text.includes(enumNum.toLowerCase())) {
+    if (hasExactTerm(text, enumNum)) {
       flags.push({ ingredient: enumNum, type: 'MASHBOOH', ruleId: 'R002' });
       logicPath.push(`Rule match [R002]: Found Mashbooh E-Number ${enumNum}.`);
       mashboohScore += 50;
@@ -60,7 +74,7 @@ export const runRuleBasedInference = (ingredientsText: string): InferenceResult 
   });
 
   ENUMBERS_LIST.HALAL.forEach(enumNum => {
-    if (text.includes(enumNum.toLowerCase())) {
+    if (hasExactTerm(text, enumNum)) {
       flags.push({ ingredient: enumNum, type: 'HALAL', ruleId: 'R003' });
       logicPath.push(`Rule match [R003]: Found Halal E-Number ${enumNum}.`);
       halalScore += 10;
@@ -69,8 +83,7 @@ export const runRuleBasedInference = (ingredientsText: string): InferenceResult 
 
   // Check Keywords
   KNOWLEDGE_BASE.haramKeywords.forEach(keyword => {
-    const regex = new RegExp(`\\b${escapeRegExp(keyword)}\\b`, 'i');
-    if (regex.test(text)) {
+    if (hasExactTerm(text, keyword)) {
       flags.push({ ingredient: keyword, type: 'HARAM', ruleId: 'R008' });
       logicPath.push(`Rule match [R008/etc]: Found Haram keyword "${keyword}".`);
       haramScore += 100;
@@ -78,8 +91,7 @@ export const runRuleBasedInference = (ingredientsText: string): InferenceResult 
   });
 
   KNOWLEDGE_BASE.mashboohKeywords.forEach(keyword => {
-    const regex = new RegExp(`\\b${escapeRegExp(keyword)}\\b`, 'i');
-    if (regex.test(text)) {
+    if (hasExactTerm(text, keyword)) {
       flags.push({ ingredient: keyword, type: 'MASHBOOH', ruleId: 'R013' });
       logicPath.push(`Rule match: Found Mashbooh keyword "${keyword}". Status ambiguous.`);
       mashboohScore += 40;

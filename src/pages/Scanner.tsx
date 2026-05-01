@@ -235,7 +235,7 @@ export function Scanner() {
 
         <div className="flex items-center gap-3 w-full">
            <div className="h-px bg-white/10 flex-1"></div>
-           <span className="text-[10px] text-white/40 font-bold tracking-widest uppercase">{t('scanner.or_enter_barcode') || 'Or Enter Barcode'}</span>
+           <span className="text-[10px] text-white/40 font-bold tracking-widest uppercase">{t('scanner.or_enter_barcode') || 'Barcode or Text'}</span>
            <div className="h-px bg-white/10 flex-1"></div>
         </div>
 
@@ -259,7 +259,7 @@ export function Scanner() {
         <form onSubmit={handleManualTextSubmit} className="flex flex-row relative mt-1">
           <input 
             className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
-            placeholder="Demo: Paste ingredients here..."
+            placeholder="Paste ingredients for offline analysis..."
             type="text"
             value={manualText}
             onChange={(e) => setManualText(e.target.value)}

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { evaluateKRREngine, EvaluationReport, Verdict } from '../utils/evaluateModel';
+import { evaluateModel, type ModelEvaluationReport } from '../utils/modelEvaluation';
 import { EVALUATION_DATASET } from '../utils/evaluationDataset';
 import { FlaskConical, CheckCircle, XCircle, BarChart3, ChevronDown, ChevronUp, Brain, Database, Cpu } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
@@ -14,12 +15,15 @@ export function Evaluation() {
   const { t } = useTranslation();
   const [hasRun, setHasRun] = useState(false);
   const [report, setReport] = useState<EvaluationReport | null>(null);
+  const [mlReport, setMlReport] = useState<ModelEvaluationReport | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showMatrix, setShowMatrix] = useState(false);
 
   const handleRunEvaluation = () => {
     const result = evaluateKRREngine();
+    const mlResult = evaluateModel();
     setReport(result);
+    setMlReport(mlResult);
     setHasRun(true);
   };
 
@@ -88,6 +92,49 @@ export function Evaluation() {
                 {report.totalCorrect} / {report.totalCases} test cases correctly classified
               </p>
             </div>
+
+            {mlReport && (
+              <div className="bg-white dark:bg-[#1a2e22] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2 mb-3">
+                  <Brain size={14} className="text-blue-500" />
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">Local ML Fallback Evaluation</h3>
+                </div>
+                <div className="flex items-end justify-between gap-3 mb-3">
+                  <div>
+                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{pct(mlReport.accuracy)}</div>
+                    <p className="text-[9px] text-gray-500 dark:text-gray-400">
+                      {mlReport.totalCorrect} / {mlReport.totalCases} holdout cases correctly classified
+                    </p>
+                  </div>
+                  <div className="text-right text-[8px] text-gray-400 dark:text-gray-500 leading-relaxed">
+                    <div>{mlReport.metadata.trainingSamples} training samples</div>
+                    <div>{mlReport.metadata.vocabularySize} n-gram features</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-5 gap-1 mb-2 px-1">
+                  <div className="text-[8px] font-bold uppercase tracking-wider text-gray-400">Class</div>
+                  <div className="text-[8px] font-bold uppercase tracking-wider text-gray-400 text-center">Precision</div>
+                  <div className="text-[8px] font-bold uppercase tracking-wider text-gray-400 text-center">Recall</div>
+                  <div className="text-[8px] font-bold uppercase tracking-wider text-gray-400 text-center">F1</div>
+                  <div className="text-[8px] font-bold uppercase tracking-wider text-gray-400 text-center">Support</div>
+                </div>
+
+                {(['HALAL', 'HARAM', 'MASHBOOH'] as Verdict[]).map(v => {
+                  const m = mlReport.metrics[v];
+                  const vc = verdictColors[v];
+                  return (
+                    <div key={v} className={`grid grid-cols-5 gap-1 py-2 px-1 rounded-lg mb-1 ${vc.bg} ${vc.darkBg}`}>
+                      <div className={`text-[10px] font-bold ${vc.text} ${vc.darkText}`}>{v}</div>
+                      <div className={`text-[10px] font-bold text-center ${vc.text} ${vc.darkText}`}>{pct(m.precision)}</div>
+                      <div className={`text-[10px] font-bold text-center ${vc.text} ${vc.darkText}`}>{pct(m.recall)}</div>
+                      <div className={`text-[10px] font-bold text-center ${vc.text} ${vc.darkText}`}>{pct(m.f1Score)}</div>
+                      <div className={`text-[10px] font-bold text-center ${vc.text} ${vc.darkText}`}>{m.support}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Per-Class Metrics */}
             <div className="bg-white dark:bg-[#1a2e22] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">

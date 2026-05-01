@@ -88,7 +88,36 @@ export const runIntegratedImageAnalysis = async (imageBase64: string, madhab: st
   
   // Step 1: Vision Extraction & Initial ML Analysis
   integrationLogs.push('Dispatching image to Machine Learning Vision endpoint...');
-  const mlResult = await analyzeImageWithGemini(imageBase64, madhab);
+  let mlResult;
+  try {
+    mlResult = await analyzeImageWithGemini(imageBase64, madhab);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Gemini vision API is unavailable.';
+    integrationLogs.push(`WARNING: Vision ML unavailable. ${message}`);
+    integrationLogs.push('Offline image fallback engaged. OCR cannot run locally, so the user must paste ingredients for full KR&R analysis.');
+
+    const krrResult = runRuleBasedInference('');
+    return {
+      finalVerdict: 'MASHBOOH',
+      confidence: 50,
+      reason: 'Offline image scan mode is active because Gemini vision is not configured. The app cannot extract ingredients from this photo locally, so this result is marked doubtful until the ingredient text is entered.',
+      flagged_ingredients: [],
+      recommendation: 'Use the scanner text box to paste the ingredients, or add GEMINI_API_KEY to enable photo OCR analysis.',
+      name: 'Photo Scan (Offline OCR Unavailable)',
+      ingredients: 'Image uploaded, but ingredients could not be extracted without Gemini vision.',
+      architectureDetails: {
+        krrAnalysis: krrResult,
+        mlAnalysis: {
+          verdict: 'MASHBOOH',
+          confidence: 50,
+          reason: 'Gemini vision unavailable; no local OCR model is bundled.',
+          flagged_ingredients: [],
+          recommendation: 'Paste ingredients manually for local ML + KR&R analysis.'
+        },
+        integrationLogic: integrationLogs
+      }
+    };
+  }
   integrationLogs.push(`ML Image Extraction completed. Identified ingredients: "${mlResult.ingredients}". AI verdict: ${mlResult.verdict}`);
 
   // Step 2: Feed extracted text into KR&R Rules

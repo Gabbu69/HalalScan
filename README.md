@@ -6,6 +6,8 @@ HalalScan is a modern React application built to help users quickly scan and ide
 
 - **Product Scanning**: Built-in barcode and QR code scanner using `html5-qrcode`.
 - **AI-Powered Analysis**: Integrates with Google GenAI for intelligent product assessment.
+- **Local ML Fallback**: TF-IDF weighted Naive Bayes classifier for offline ingredient scoring.
+- **Knowledge-Based Reasoning**: Rule engine checks E-numbers, pork derivatives, alcohol, enzymes, and doubtful additives with an explainable logic trace.
 - **Modern UI**: Styled with Tailwind CSS for a sleek, responsive, and accessible interface.
 - **Fast & Optimized**: Bootstrapped with Vite and React 19 for blazing-fast development and optimized production builds.
 
@@ -57,6 +59,23 @@ The application will be running at `http://localhost:3000`.
 - `npm run build`: Builds the application for production.
 - `npm run preview`: Previews the production build locally.
 - `npm run lint`: Runs TypeScript type checking.
+- `npm run evaluate`: Runs local ML and KR&R evaluation reports.
+
+## Vercel Deployment
+
+Add a fresh Gemini key in **Vercel Project Settings -> Environment Variables**:
+
+```text
+GEMINI_API_KEY = your_fresh_google_ai_studio_key
+```
+
+Supported server-side aliases are `GOOGLE_API_KEY` and `GOOGLE_GENERATIVE_AI_API_KEY`, but `GEMINI_API_KEY` is recommended. After adding the key, redeploy the project. You can check deployment configuration at:
+
+```text
+https://your-vercel-domain.vercel.app/api/health
+```
+
+The response should show `"configured": true` under `gemini`.
 
 ## Contributing
 

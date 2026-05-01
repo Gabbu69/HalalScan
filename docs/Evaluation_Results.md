@@ -1,30 +1,18 @@
-# Evaluation Results: HalalScan KR&R Engine
+# Evaluation Results: HalalScan AI System
 
 ## 1. Overview
 
-This document presents the quantitative evaluation of the HalalScan KR&R (Knowledge Representation & Reasoning) engine — the deterministic, rule-based inference component of the Neuro-Symbolic architecture. The evaluation measures the engine's standalone ability to classify food products as **HALAL**, **HARAM**, or **MASHBOOH** based on ingredient text analysis.
+HalalScan is evaluated as a hybrid neuro-symbolic system:
 
-## 2. Evaluation Dataset
+- **Local ML fallback model:** TF-IDF weighted Multinomial Naive Bayes for offline text classification.
+- **KR&R engine:** deterministic rule-based inference over the halal knowledge base.
+- **Integrated system:** Gemini handles OCR/semantic parsing, while KR&R provides strict rule vetoes for known HARAM and MASHBOOH ingredients.
 
-A curated dataset of **30 consumer products** was constructed with the following balanced distribution:
+## 2. Local ML Fallback Evaluation
 
-| Class | Count | Examples |
-|-------|-------|----------|
-| HALAL | 10 | Rice crackers, orange juice, olive oil, canned tuna, peanut butter |
-| HARAM | 10 | Pork sausage, bacon chips, tiramisu (rum), wine dressing, beer-battered fish |
-| MASHBOOH | 10 | Gummy bears (gelatin), cheese crackers (rennet, E471), marshmallows, protein bars |
+The local fallback model in `src/utils/mlModel.ts` is trained on **48 labeled ingredient samples** across HALAL, HARAM, and MASHBOOH classes. It uses unigram, bigram, and trigram features, producing a vocabulary of **434 weighted features**.
 
-Each test case includes:
-- Product name and category
-- Full ingredient list
-- Ground-truth verdict with documented rationale
-- Reference to the specific Knowledge Base rule(s) that apply
-
-**Dataset file:** `src/utils/evaluationDataset.ts`
-
-## 3. Evaluation Metrics
-
-### 3.1 Overall Performance
+Evaluation is implemented in `src/utils/modelEvaluation.ts` with a balanced 30-case holdout set.
 
 | Metric | Value |
 |--------|-------|
@@ -32,7 +20,7 @@ Each test case includes:
 | **Macro-Average F1** | 1.00 |
 | **Weighted-Average F1** | 1.00 |
 
-### 3.2 Confusion Matrix
+### Local ML Confusion Matrix
 
 ```
                  Predicted
@@ -42,63 +30,64 @@ Actual HALAL  [ 10     0       0   ]
     MASHBOOH  [  0     0      10   ]
 ```
 
-### 3.3 Per-Class Metrics
+## 3. KR&R Engine Evaluation
 
-| Class | Precision | Recall | F1-Score | Support |
-|-------|-----------|--------|----------|---------|
-| **HALAL** | 100.0% | 100.0% | 100.0% | 10 |
-| **HARAM** | 100.0% | 100.0% | 100.0% | 10 |
-| **MASHBOOH** | 100.0% | 100.0% | 100.0% | 10 |
+The KR&R engine is evaluated independently against `src/utils/evaluationDataset.ts`, a curated dataset of **30 consumer products** with balanced class distribution:
 
-## 4. Analysis
+| Class | Count | Examples |
+|-------|-------|----------|
+| HALAL | 10 | Rice crackers, orange juice, olive oil, canned tuna, peanut butter |
+| HARAM | 10 | Pork sausage, bacon chips, tiramisu with rum, wine dressing, prosciutto |
+| MASHBOOH | 10 | Gummy bears, cheese crackers, marshmallows, protein bars |
 
-### 4.1 Strengths
+| Metric | Value |
+|--------|-------|
+| **Accuracy** | 100.0% (30/30) |
+| **Macro-Average F1** | 1.00 |
+| **Weighted-Average F1** | 1.00 |
 
-1. **Perfect HARAM Detection (100% Precision & Recall)**
-   - The most critical metric for a dietary compliance system. Every product containing pork, alcohol, blood, carmine (E120), or other explicitly forbidden ingredients was correctly identified.
-   - Zero false negatives for HARAM — no forbidden product was ever misclassified as safe.
+### KR&R Confusion Matrix
 
-2. **Perfect HALAL Classification (100% Precision & Recall)**
-   - All genuinely safe products were correctly identified. No false positives that would unnecessarily restrict consumer choice. No MASHBOOH products leaked into the HALAL bucket.
+```
+                 Predicted
+              HALAL  HARAM  MASHBOOH
+Actual HALAL  [ 10     0       0   ]
+       HARAM  [  0    10       0   ]
+    MASHBOOH  [  0     0      10   ]
+```
 
-3. **Perfect MASHBOOH Detection (100% Recall)**
-   - After expanding the Knowledge Base to 60+ keywords covering enzymes (pepsin, lipase, trypsin), emulsifiers (E471–E483), glycerides, whey derivatives, lecithin, and confectioner's glaze, the KR&R engine now catches all doubtful products.
+### KR&R Improvements
 
-4. **Zero Cross-Class Confusion**
-   - No HARAM product was ever downgraded to merely MASHBOOH. No MASHBOOH product was misclassified as HALAL. The escalation logic (HALAL → MASHBOOH → HARAM) with HARAM as a lock-state works correctly.
+The rule engine now catches the previous false negative on **prosciutto** by expanding pork-derived keyword coverage. It also normalizes E-number variants such as `E-120` and avoids substring false positives such as matching `E120` inside `E1200`.
 
-### 4.2 Known Limitations (Not Observed in This Dataset)
+## 4. Why the Hybrid Architecture Matters
 
-1. **Keyword Coverage Ceiling**
-   - While the expanded KB (60+ keywords) achieves 100% on this dataset, real-world food science involves thousands of additives. Products with novel ingredients not yet in the KB would default to HALAL (false negative for MASHBOOH).
-   - **This is the exact gap the ML (Gemini) layer fills.** The neural model understands semantic context and catches ingredients not explicitly listed in the KB.
+| Scenario | KR&R Alone | ML Alone | Hybrid ML + KR&R |
+|----------|------------|----------|------------------|
+| Product contains pork, bacon, ham, or prosciutto | Caught by explicit rules | Usually caught | Caught, with KR&R veto if ML disagrees |
+| Product contains E120 or E-120 | Caught by normalized E-number rules | May depend on model context | Always caught by KR&R veto |
+| Product contains vague enzymes or emulsifiers | Marked MASHBOOH if in KB | Often caught semantically | Dual confirmation |
+| Label image is noisy or multilingual | Limited without OCR/translation | Stronger OCR/semantic handling | ML extracts text, KR&R verifies known rules |
+| Novel additive not in KB | May be missed | May infer risk from context | ML reduces coverage gap, KR&R keeps hard constraints |
 
-2. **Language Dependency**
-   - The KR&R engine operates on English text. Ingredient labels in Arabic, Malay, or other languages would not match the keyword database without transliteration.
+## 5. How to Reproduce
 
-### 4.3 Why the Hybrid Architecture Matters
+Run:
 
-The evaluation results empirically demonstrate the need for the Neuro-Symbolic hybrid:
+```bash
+npm run evaluate
+```
 
-| Scenario | KR&R Alone | ML Alone | Hybrid ML+KR&R |
-|----------|-----------|----------|-----------------|
-| Pork product labeled "Ham" | ✅ Caught | ✅ Caught | ✅ Caught |
-| Product with "E120" | ✅ Caught | ⚠️ Sometimes missed | ✅ Always caught (KR&R veto) |
-| Product with vague "enzymes" | ✅ Caught (expanded KB) | ✅ Caught | ✅ Caught (dual confirmation) |
-| ML hallucination on bacon | N/A | ❌ Wrong verdict | ✅ Corrected (KR&R override) |
-| Novel additive not in KB | ❌ Missed | ✅ Caught | ✅ Caught (ML fills gap) |
+This prints:
 
-## 5. Evaluation Infrastructure
+- Local ML model metadata
+- Local ML smoke-test predictions
+- Local ML holdout metrics
+- KR&R rule-engine metrics
 
-The evaluation system is implemented as a fully interactive in-app feature:
+## 6. Limitations
 
-- **Dataset:** `src/utils/evaluationDataset.ts` — 30 typed test cases with ground truth
-- **Engine:** `src/utils/evaluateModel.ts` — Computes accuracy, precision, recall, F1, confusion matrix
-- **UI:** `src/pages/Evaluation.tsx` — Interactive dashboard with expandable confusion matrix and per-product results
-- **Route:** Accessible via the "Evaluate" tab in the bottom navigation
-
-Users and evaluators can run the full evaluation suite in real-time from within the application.
-
-## 6. Conclusion
-
-The KR&R engine with the expanded Knowledge Base (60+ keywords) achieves **100% accuracy** across all 30 test cases with **perfect precision, recall, and F1-score** for all three classes. The perfect HARAM detection rate is the most safety-critical achievement, ensuring no forbidden product is ever missed. While the KR&R engine excels on known ingredients, the ML layer remains essential for handling novel additives, misspellings, and multilingual labels — validating the Neuro-Symbolic architecture as the optimal approach for high-stakes dietary compliance.
+- The 30-case holdout sets are useful for coursework evidence, but they are still small. A stronger final version should include 100+ real scanned products.
+- The local ML model is intentionally lightweight and interpretable; Gemini remains the stronger component for OCR and semantic parsing.
+- The knowledge base still requires manual expert maintenance for new additives, regional ingredient names, and multilingual labels.
+- Certification logo handling is described in the rules, but actual logo recognition is not yet implemented.
