@@ -12,7 +12,7 @@ export function Analysis() {
   const navigate = useNavigate();
   const barcode = searchParams.get('barcode');
   const type = searchParams.get('type');
-  const { addScan, madhab, pendingAnalysisImage, setPendingAnalysisImage } = useAppStore();
+  const { addScan, madhab, pendingAnalysisImage, setPendingAnalysisImage, pendingAnalysisText, setPendingAnalysisText } = useAppStore();
   const { t } = useTranslation();
   
   const [loading, setLoading] = useState(true);
@@ -22,7 +22,7 @@ export function Analysis() {
   const [showArch, setShowArch] = useState(false);
 
   useEffect(() => {
-    if (!barcode && type !== 'image') {
+    if (!barcode && type !== 'image' && type !== 'text') {
       navigate(-1);
       return;
     }
@@ -52,6 +52,33 @@ export function Analysis() {
           setResult(finalScan);
           useAppStore.getState().addScan(finalScan);
           setPendingAnalysisImage(null); // clear it
+          setLoading(false);
+          return;
+        }
+
+        if (type === 'text' && pendingAnalysisText) {
+          setStep('Running ML Framework & KR&R Engine...');
+          const integratedData = await runIntegratedAnalysis("Manual Scan", pendingAnalysisText, madhab);
+          
+          const finalScan: ScanRecord = {
+            id: Date.now().toString(),
+            date: new Date().toISOString(),
+            barcode: 'MANUAL_' + Date.now(),
+            name: "Manual Input",
+            brand: "Demo Source",
+            image: null,
+            ingredients: pendingAnalysisText,
+            verdict: integratedData.finalVerdict,
+            confidence: integratedData.confidence,
+            flagged_ingredients: integratedData.flagged_ingredients || [],
+            reason: integratedData.reason,
+            recommendation: integratedData.recommendation,
+            architectureDetails: integratedData.architectureDetails
+          };
+
+          setResult(finalScan);
+          useAppStore.getState().addScan(finalScan);
+          setPendingAnalysisText(null); // clear it
           setLoading(false);
           return;
         }
@@ -99,7 +126,7 @@ export function Analysis() {
     };
 
     runAnalysis();
-  }, [barcode, type, madhab, navigate, pendingAnalysisImage, setPendingAnalysisImage]);
+  }, [barcode, type, madhab, navigate, pendingAnalysisImage, setPendingAnalysisImage, pendingAnalysisText, setPendingAnalysisText]);
 
   if (errorMsg) {
     return (

@@ -1,5 +1,6 @@
 import { runRuleBasedInference, InferenceResult } from './reasoningEngine';
 import { analyzeProductWithGemini, analyzeImageWithGemini } from './geminiApi';
+import { scoreIngredients } from './mlModel';
 
 export type IntegratedAnalysisResult = {
   finalVerdict: 'HALAL' | 'HARAM' | 'MASHBOOH';
@@ -60,8 +61,24 @@ export const runIntegratedAnalysis = async (productName: string, ingredients: st
   integrationLogs.push(`KR&R Engine completed. Preliminary status: ${krrResult.status}.`);
 
   integrationLogs.push('Dispatching payload to Machine Learning Inferencing endpoint...');
-  const mlResult = await analyzeProductWithGemini(productName, ingredients, madhab);
-  integrationLogs.push(`ML Engine completed. AI verdict: ${mlResult.verdict}.`);
+  let mlResult;
+  try {
+    mlResult = await analyzeProductWithGemini(productName, ingredients, madhab);
+    integrationLogs.push(`ML Engine completed. AI verdict: ${mlResult.verdict}.`);
+  } catch (error) {
+    integrationLogs.push(`WARNING: ML API unreachable. Engaging Offline Fallback Model (Naive Bayes)...`);
+    const fallbackResult = scoreIngredients(ingredients);
+    mlResult = {
+      verdict: fallbackResult.verdict,
+      confidence: Math.round(fallbackResult.confidence * 100),
+      reason: `(Offline Fallback Active) Local statistical model evaluated text. Key influencing terms: ${fallbackResult.influencingTerms.join(', ')}.`,
+      flagged_ingredients: [],
+      recommendation: "System running locally. Rule-based evaluation is accurate, but ML context may be limited.",
+      name: productName,
+      ingredients: ingredients
+    };
+    integrationLogs.push(`Offline Fallback completed. Local AI verdict: ${mlResult.verdict}.`);
+  }
 
   return buildConsensus(mlResult, krrResult, integrationLogs);
 };

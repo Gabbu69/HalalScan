@@ -8,12 +8,13 @@ import { useTranslation } from '../hooks/useTranslation';
 
 export function Scanner() {
   const [manualBarcode, setManualBarcode] = useState('');
+  const [manualText, setManualText] = useState('');
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isScannerReady, setIsScannerReady] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { setPendingAnalysisImage } = useAppStore();
+  const { setPendingAnalysisImage, setPendingAnalysisText } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
 
@@ -85,6 +86,16 @@ export function Scanner() {
     navigate(`/analysis?barcode=${manualBarcode.trim()}`);
   };
 
+  const handleManualTextSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (manualText.trim().length < 2) {
+      alert("Enter valid ingredients list");
+      return;
+    }
+    setPendingAnalysisText(manualText.trim());
+    navigate('/analysis?type=text');
+  };
+
   const handleCapturePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -141,7 +152,7 @@ export function Scanner() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-black text-white relative overflow-hidden">
+    <div className="flex flex-col h-screen max-w-md mx-auto w-full bg-black text-white relative overflow-hidden sm:shadow-2xl sm:border-x sm:border-white/10">
       
       {/* Scanner Wrapper */}
       <div className="flex-1 relative w-full h-full bg-black">
@@ -240,6 +251,23 @@ export function Scanner() {
             type="submit"
             className="absolute right-1.5 top-1.5 bottom-1.5 bg-[#C9A84C] hover:bg-[#b09341] px-5 rounded-lg transition-colors flex items-center justify-center text-[#1B6B3A] shadow-md disabled:opacity-40"
             disabled={!manualBarcode.trim()}
+          >
+            <Search size={20} className="stroke-[3]" />
+          </button>
+        </form>
+
+        <form onSubmit={handleManualTextSubmit} className="flex flex-row relative mt-1">
+          <input 
+            className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
+            placeholder="Demo: Paste ingredients here..."
+            type="text"
+            value={manualText}
+            onChange={(e) => setManualText(e.target.value)}
+          />
+          <button 
+            type="submit"
+            className="absolute right-1.5 top-1.5 bottom-1.5 bg-[#C9A84C] hover:bg-[#b09341] px-5 rounded-lg transition-colors flex items-center justify-center text-[#1B6B3A] shadow-md disabled:opacity-40"
+            disabled={!manualText.trim()}
           >
             <Search size={20} className="stroke-[3]" />
           </button>
