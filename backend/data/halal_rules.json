@@ -1,0 +1,636 @@
+{
+  "certifying_bodies": [
+    {
+      "id": "CB001",
+      "name": "JAKIM",
+      "country": "Malaysia",
+      "aliases": ["Department of Islamic Development Malaysia", "Malaysia Halal", "MS 1500"]
+    },
+    {
+      "id": "CB002",
+      "name": "MUI",
+      "country": "Indonesia",
+      "aliases": ["Majelis Ulama Indonesia", "Indonesian Ulema Council", "LPPOM MUI"]
+    },
+    {
+      "id": "CB003",
+      "name": "IFANCA",
+      "country": "United States",
+      "aliases": ["Islamic Food and Nutrition Council of America", "IFANCA Halal"]
+    },
+    {
+      "id": "CB004",
+      "name": "HFA",
+      "country": "United Kingdom",
+      "aliases": ["Halal Food Authority", "HFA UK"]
+    },
+    {
+      "id": "CB005",
+      "name": "ESMA",
+      "country": "United Arab Emirates",
+      "aliases": ["Emirates Authority for Standardization and Metrology", "UAE Halal"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "R001",
+      "category": "Additives",
+      "title": "E120 Carmine",
+      "status": "HARAM",
+      "e_numbers": ["E120"],
+      "keywords": ["carmine", "cochineal", "cochineal extract", "crimson lake"],
+      "reason": "Carmine and cochineal are insect-derived colorants and are treated as non-compliant by the maintained halal rule base.",
+      "source": "JAKIM and IFANCA ingredient guidance"
+    },
+    {
+      "id": "R002",
+      "category": "Additives",
+      "title": "E441 Gelatin",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E441"],
+      "keywords": ["gelatin", "gelatine"],
+      "reason": "Gelatin is source-dependent and requires halal-certified fish, bovine, or plant source documentation.",
+      "source": "IFANCA ingredient guidance"
+    },
+    {
+      "id": "R003",
+      "category": "Additives",
+      "title": "Pork Gelatin",
+      "status": "HARAM",
+      "e_numbers": [],
+      "keywords": ["pork gelatin", "porcine gelatin", "pig gelatin", "swine gelatin"],
+      "reason": "Pork-derived gelatin is explicitly non-compliant.",
+      "source": "Quran and Sunnah dietary prohibition"
+    },
+    {
+      "id": "R004",
+      "category": "Additives",
+      "title": "E471 Mono and Diglycerides",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E471"],
+      "keywords": ["mono and diglycerides", "monoglycerides", "diglycerides"],
+      "reason": "Mono and diglycerides may come from plant or animal fat and require source verification.",
+      "source": "JAKIM and IFANCA ingredient guidance"
+    },
+    {
+      "id": "R005",
+      "category": "Additives",
+      "title": "E472 Ester Emulsifiers",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E472", "E472A", "E472B", "E472C", "E472D", "E472E", "E472F"],
+      "keywords": ["acetic acid esters", "lactic acid esters", "citric acid esters"],
+      "reason": "E472 emulsifiers can be made from animal-derived fatty acids.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R006",
+      "category": "Additives",
+      "title": "E473 Sucrose Esters",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E473"],
+      "keywords": ["sucrose esters"],
+      "reason": "Sucrose esters can involve fatty acids of uncertain origin.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R007",
+      "category": "Additives",
+      "title": "E474 Sucroglycerides",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E474"],
+      "keywords": ["sucroglycerides"],
+      "reason": "Sucroglycerides may involve animal-derived glycerides.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R008",
+      "category": "Additives",
+      "title": "E475 Polyglycerol Esters",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E475"],
+      "keywords": ["polyglycerol esters"],
+      "reason": "Polyglycerol esters can use fatty acids of uncertain animal or plant source.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R009",
+      "category": "Additives",
+      "title": "E476 PGPR",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E476"],
+      "keywords": ["polyglycerol polyricinoleate", "pgpr"],
+      "reason": "PGPR is treated as doubtful until the fatty-acid source is verified.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R010",
+      "category": "Additives",
+      "title": "E477 Propylene Glycol Esters",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E477"],
+      "keywords": ["propylene glycol esters"],
+      "reason": "The fatty-acid source must be verified before compliance can be confirmed.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R011",
+      "category": "Additives",
+      "title": "E481 Sodium Stearoyl Lactylate",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E481"],
+      "keywords": ["sodium stearoyl lactylate"],
+      "reason": "Stearoyl lactylates may be derived from animal fat and require source verification.",
+      "source": "IFANCA ingredient guidance"
+    },
+    {
+      "id": "R012",
+      "category": "Additives",
+      "title": "E482 Calcium Stearoyl Lactylate",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E482"],
+      "keywords": ["calcium stearoyl lactylate"],
+      "reason": "Stearoyl lactylates may be derived from animal fat and require source verification.",
+      "source": "IFANCA ingredient guidance"
+    },
+    {
+      "id": "R013",
+      "category": "Additives",
+      "title": "E483 Stearyl Tartrate",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E483"],
+      "keywords": ["stearyl tartrate"],
+      "reason": "Stearyl tartrate depends on the source of stearyl alcohol.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R014",
+      "category": "Additives",
+      "title": "E542 Bone Phosphate",
+      "status": "HARAM",
+      "e_numbers": ["E542"],
+      "keywords": ["bone phosphate", "edible bone phosphate"],
+      "reason": "Bone phosphate is animal-bone derived and is non-compliant without halal-certified animal source evidence.",
+      "source": "JAKIM ingredient guidance"
+    },
+    {
+      "id": "R015",
+      "category": "Additives",
+      "title": "E570 Stearic Acid",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E570"],
+      "keywords": ["stearic acid"],
+      "reason": "Stearic acid can be plant or animal derived and requires source verification.",
+      "source": "IFANCA ingredient guidance"
+    },
+    {
+      "id": "R016",
+      "category": "Additives",
+      "title": "E904 Shellac",
+      "status": "HARAM",
+      "e_numbers": ["E904"],
+      "keywords": ["shellac", "confectioners glaze", "confectioner's glaze", "pharmaceutical glaze"],
+      "reason": "Shellac is an insect secretion and is treated as non-compliant in this rule base.",
+      "source": "JAKIM ingredient guidance"
+    },
+    {
+      "id": "R017",
+      "category": "Additives",
+      "title": "E920 L-Cysteine",
+      "status": "HARAM",
+      "e_numbers": ["E920"],
+      "keywords": ["l-cysteine", "l cysteine", "cysteine hydrochloride"],
+      "reason": "L-cysteine can be sourced from human hair or pig bristles and is blocked unless explicitly microbial or synthetic.",
+      "source": "IFANCA ingredient guidance"
+    },
+    {
+      "id": "R018",
+      "category": "Additives",
+      "title": "E422 Glycerol",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E422"],
+      "keywords": ["glycerol", "glycerin", "glycerine"],
+      "reason": "Glycerol may be synthetic, plant-derived, or animal-derived and needs source verification.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R019",
+      "category": "Additives",
+      "title": "E153 Carbon Black",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E153"],
+      "keywords": ["carbon black", "vegetable carbon"],
+      "reason": "Carbon black source and processing aid status should be verified.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R020",
+      "category": "Additives",
+      "title": "E470 Fatty Acid Salts",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E470", "E470A", "E470B"],
+      "keywords": ["fatty acid salts", "sodium salts of fatty acids", "potassium salts of fatty acids"],
+      "reason": "Fatty acid salts can be animal or plant derived.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R021",
+      "category": "Additives",
+      "title": "Sorbitan Esters",
+      "status": "DOUBTFUL",
+      "e_numbers": ["E491", "E492", "E493", "E494", "E495"],
+      "keywords": ["sorbitan monostearate", "sorbitan tristearate", "sorbitan monolaurate", "sorbitan monooleate", "sorbitan monopalmitate"],
+      "reason": "Sorbitan esters can involve fatty acids of uncertain source.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R022",
+      "category": "Pork",
+      "title": "Pork Meat",
+      "status": "HARAM",
+      "e_numbers": [],
+      "keywords": ["pork", "pig", "swine", "boar"],
+      "reason": "Pork and swine-derived meat are explicitly non-compliant.",
+      "source": "Quran Al-Baqarah 2:173"
+    },
+    {
+      "id": "R023",
+      "category": "Pork",
+      "title": "Pork Fat",
+      "status": "HARAM",
+      "e_numbers": [],
+      "keywords": ["lard", "pork fat", "pig fat", "swine fat", "porcine fat"],
+      "reason": "Pork fat and lard are explicitly non-compliant.",
+      "source": "Quran Al-Baqarah 2:173"
+    },
+    {
+      "id": "R024",
+      "category": "Pork",
+      "title": "Cured Pork Products",
+      "status": "HARAM",
+      "e_numbers": [],
+      "keywords": ["bacon", "ham", "prosciutto", "pancetta", "pepperoni", "salami", "chorizo", "mortadella", "jamon"],
+      "reason": "Cured pork products are non-compliant.",
+      "source": "Quran and Sunnah dietary prohibition"
+    },
+    {
+      "id": "R025",
+      "category": "Pork",
+      "title": "Pork Stock and Flavor",
+      "status": "HARAM",
+      "e_numbers": [],
+      "keywords": ["pork stock", "pork broth", "pork flavor", "pork flavour", "pork extract", "bacon flavor", "ham flavor"],
+      "reason": "Pork stock, broth, extract, and flavoring are non-compliant.",
+      "source": "Quran and Sunnah dietary prohibition"
+    },
+    {
+      "id": "R026",
+      "category": "Animal Source",
+      "title": "Blood Products",
+      "status": "HARAM",
+      "e_numbers": [],
+      "keywords": ["blood", "blood plasma", "blood sausage", "black pudding", "hemoglobin"],
+      "reason": "Flowing blood and blood-derived food ingredients are non-compliant.",
+      "source": "Quran Al-Ma'idah 5:3"
+    },
+    {
+      "id": "R027",
+      "category": "Animal Source",
+      "title": "Animal Fat",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["animal fat", "animal shortening", "tallow", "beef tallow", "mutton tallow"],
+      "reason": "Animal fat is source- and slaughter-dependent and requires halal certification.",
+      "source": "JAKIM halal meat processing guidance"
+    },
+    {
+      "id": "R028",
+      "category": "Animal Source",
+      "title": "Animal Enzymes",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["animal enzymes", "animal enzyme", "enzymes", "enzyme"],
+      "reason": "Unspecified enzymes can be animal-derived and require source verification.",
+      "source": "IFANCA enzyme guidance"
+    },
+    {
+      "id": "R029",
+      "category": "Animal Source",
+      "title": "Rennet",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["rennet", "animal rennet"],
+      "reason": "Rennet is halal only if microbial, plant-based, or from halal-slaughtered animals.",
+      "source": "JAKIM dairy protocol"
+    },
+    {
+      "id": "R030",
+      "category": "Animal Source",
+      "title": "Microbial Rennet",
+      "status": "HALAL",
+      "e_numbers": [],
+      "keywords": ["microbial rennet", "vegetarian rennet", "plant rennet"],
+      "reason": "Microbial, vegetarian, and plant-based rennet are treated as compliant.",
+      "source": "IFANCA enzyme guidance"
+    },
+    {
+      "id": "R031",
+      "category": "Animal Source",
+      "title": "Pepsin",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["pepsin"],
+      "reason": "Pepsin is commonly animal-derived and requires halal-certified source evidence.",
+      "source": "IFANCA enzyme guidance"
+    },
+    {
+      "id": "R032",
+      "category": "Animal Source",
+      "title": "Lipase",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["lipase"],
+      "reason": "Lipase may be animal, plant, or microbial and requires source verification.",
+      "source": "IFANCA enzyme guidance"
+    },
+    {
+      "id": "R033",
+      "category": "Animal Source",
+      "title": "Trypsin",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["trypsin"],
+      "reason": "Trypsin may be animal-derived and requires source verification.",
+      "source": "IFANCA enzyme guidance"
+    },
+    {
+      "id": "R034",
+      "category": "Alcohol",
+      "title": "Alcoholic Beverages",
+      "status": "HARAM",
+      "e_numbers": [],
+      "keywords": ["wine", "beer", "rum", "vodka", "whiskey", "brandy", "liqueur", "bourbon", "sake", "sherry", "marsala", "cognac"],
+      "reason": "Alcoholic beverages and intoxicants used as ingredients are non-compliant.",
+      "source": "JAKIM and IFANCA alcohol standards"
+    },
+    {
+      "id": "R035",
+      "category": "Alcohol",
+      "title": "Ethanol and Alcohol",
+      "status": "HARAM",
+      "e_numbers": [],
+      "keywords": ["ethanol", "ethyl alcohol", "alcohol"],
+      "reason": "Added intoxicating alcohol is non-compliant.",
+      "source": "JAKIM and IFANCA alcohol standards"
+    },
+    {
+      "id": "R036",
+      "category": "Alcohol",
+      "title": "Alcohol-Based Flavor Extract",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["vanilla extract", "flavor extract", "flavour extract", "alcohol-based flavor", "alcohol based flavor"],
+      "reason": "Flavor extracts may use alcohol as a solvent and require residual alcohol and source verification.",
+      "source": "JAKIM fatwa committee guidance"
+    },
+    {
+      "id": "R037",
+      "category": "Flavoring",
+      "title": "Natural Flavors",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["natural flavors", "natural flavour", "natural flavoring", "natural flavouring"],
+      "reason": "Natural flavors can include animal-derived or alcohol-based carriers and require source verification.",
+      "source": "IFANCA ingredient guidance"
+    },
+    {
+      "id": "R038",
+      "category": "Flavoring",
+      "title": "Artificial Flavors",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["artificial flavors", "artificial flavor", "artificial flavour"],
+      "reason": "Artificial flavors can use doubtful carriers and should be verified when source is unspecified.",
+      "source": "Food science ingredient guidance"
+    },
+    {
+      "id": "R039",
+      "category": "Dairy",
+      "title": "Whey",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["whey", "whey powder", "whey protein", "whey protein isolate"],
+      "reason": "Whey depends on rennet and cheese-processing source.",
+      "source": "JAKIM dairy protocol"
+    },
+    {
+      "id": "R040",
+      "category": "Dairy",
+      "title": "Cheese Cultures and Enzymes",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["cheese enzymes", "cheddar cheese", "mozzarella cheese", "processed cheese"],
+      "reason": "Cheese products require verification of rennet and enzyme sources.",
+      "source": "JAKIM dairy protocol"
+    },
+    {
+      "id": "R041",
+      "category": "Meat",
+      "title": "Uncertified Meat",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["beef", "chicken", "mutton", "lamb", "goat", "turkey", "duck"],
+      "reason": "Land animal meat requires halal slaughter and certification evidence.",
+      "source": "JAKIM MS 1500:2019"
+    },
+    {
+      "id": "R042",
+      "category": "Meat",
+      "title": "Zabiha Certified Meat",
+      "status": "HALAL",
+      "e_numbers": [],
+      "keywords": ["zabiha certified", "halal certified beef", "halal certified chicken", "halal slaughtered"],
+      "reason": "Halal-certified slaughter evidence resolves the meat-source requirement.",
+      "source": "JAKIM MS 1500:2019"
+    },
+    {
+      "id": "R043",
+      "category": "Seafood",
+      "title": "Fish",
+      "status": "HALAL",
+      "e_numbers": [],
+      "keywords": ["fish", "tuna", "salmon", "sardine", "cod", "mackerel", "tilapia"],
+      "reason": "Fish is treated as compliant by the maintained default rule base.",
+      "source": "IFANCA seafood guidance"
+    },
+    {
+      "id": "R044",
+      "category": "Seafood",
+      "title": "Shellfish School Difference",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["shrimp", "prawn", "crab", "lobster", "clam", "mussel", "oyster", "squid"],
+      "reason": "Some seafood categories may differ by school of law and are routed to review.",
+      "source": "IFANCA seafood guidance"
+    },
+    {
+      "id": "R045",
+      "category": "Plant",
+      "title": "Plant Oils",
+      "status": "HALAL",
+      "e_numbers": [],
+      "keywords": ["sunflower oil", "olive oil", "soybean oil", "corn oil", "canola oil", "palm oil", "coconut oil"],
+      "reason": "Plant oils are treated as compliant unless contaminated or mixed with animal-derived material.",
+      "source": "JAKIM general halal standards"
+    },
+    {
+      "id": "R046",
+      "category": "Plant",
+      "title": "Grains and Starches",
+      "status": "HALAL",
+      "e_numbers": [],
+      "keywords": ["wheat flour", "rice", "corn starch", "modified corn starch", "oats", "barley", "tapioca starch"],
+      "reason": "Plant-derived grains and starches are treated as compliant.",
+      "source": "JAKIM general halal standards"
+    },
+    {
+      "id": "R047",
+      "category": "Plant",
+      "title": "Water, Sugars and Salts",
+      "status": "HALAL",
+      "e_numbers": [],
+      "keywords": ["water", "sugar", "cane sugar", "glucose syrup", "salt", "sea salt"],
+      "reason": "Water, basic sugars, and salts are treated as compliant.",
+      "source": "JAKIM general halal standards"
+    },
+    {
+      "id": "R048",
+      "category": "Additives",
+      "title": "E300 Ascorbic Acid",
+      "status": "HALAL",
+      "e_numbers": ["E300"],
+      "keywords": ["ascorbic acid", "vitamin c"],
+      "reason": "Ascorbic acid is treated as compliant.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R049",
+      "category": "Additives",
+      "title": "E330 Citric Acid",
+      "status": "HALAL",
+      "e_numbers": ["E330"],
+      "keywords": ["citric acid"],
+      "reason": "Citric acid is treated as compliant.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R050",
+      "category": "Additives",
+      "title": "E406 Agar",
+      "status": "HALAL",
+      "e_numbers": ["E406"],
+      "keywords": ["agar", "agar agar"],
+      "reason": "Agar is seaweed-derived and treated as compliant.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R051",
+      "category": "Additives",
+      "title": "E412 Guar Gum",
+      "status": "HALAL",
+      "e_numbers": ["E412"],
+      "keywords": ["guar gum"],
+      "reason": "Guar gum is plant-derived and treated as compliant.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R052",
+      "category": "Additives",
+      "title": "E415 Xanthan Gum",
+      "status": "HALAL",
+      "e_numbers": ["E415"],
+      "keywords": ["xanthan gum"],
+      "reason": "Xanthan gum is microbial fermentation-derived and treated as compliant.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R053",
+      "category": "Additives",
+      "title": "E440 Pectin",
+      "status": "HALAL",
+      "e_numbers": ["E440"],
+      "keywords": ["pectin"],
+      "reason": "Pectin is plant-derived and treated as compliant.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R054",
+      "category": "Processing",
+      "title": "Cross Contamination",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["may contain pork", "shared equipment with pork", "processed with pork", "same line as pork", "cross contamination"],
+      "reason": "Possible contact with haram material requires review unless cleaning controls are documented.",
+      "source": "JAKIM MS 1500:2019"
+    },
+    {
+      "id": "R055",
+      "category": "Processing",
+      "title": "Non-Halal Facility",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["non halal facility", "not halal certified", "uncertified facility"],
+      "reason": "Facility status is unresolved and requires verification.",
+      "source": "JAKIM MS 1500:2019"
+    },
+    {
+      "id": "R056",
+      "category": "Certification",
+      "title": "Halal Certified Label",
+      "status": "HALAL",
+      "e_numbers": [],
+      "keywords": ["halal certified", "certified halal"],
+      "reason": "A halal-certified label supports compliance only when the certifying body is recognized.",
+      "source": "Global halal certification practice"
+    },
+    {
+      "id": "R057",
+      "category": "Animal Source",
+      "title": "Collagen",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["collagen", "hydrolyzed collagen"],
+      "reason": "Collagen source must be verified because it is often animal-derived.",
+      "source": "IFANCA ingredient guidance"
+    },
+    {
+      "id": "R058",
+      "category": "Animal Source",
+      "title": "Magnesium Stearate",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["magnesium stearate"],
+      "reason": "Magnesium stearate can be plant or animal derived and needs source verification.",
+      "source": "IFANCA ingredient guidance"
+    },
+    {
+      "id": "R059",
+      "category": "Animal Source",
+      "title": "Calcium Stearate",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["calcium stearate"],
+      "reason": "Calcium stearate can be plant or animal derived and needs source verification.",
+      "source": "IFANCA ingredient guidance"
+    },
+    {
+      "id": "R060",
+      "category": "Pharmaceutical",
+      "title": "Capsule Gelatin",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["gelatin capsule", "softgel", "soft gel"],
+      "reason": "Capsule gelatin is source-dependent and requires halal certification.",
+      "source": "IFANCA pharmaceutical ingredient guidance"
+    }
+  ]
+}

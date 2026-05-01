@@ -7,3 +7,7 @@ coverage/
 .env*
 !.env.example
 .vercel
+backend/data/*.sqlite3
+backend/data/*.sqlite3-*
+__pycache__/
+.pytest_cache/

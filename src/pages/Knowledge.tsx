@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { HALAL_RULES } from '../constants/halalRules';
+import React, { useEffect, useState } from 'react';
+import { HALAL_RULES, HalalRule } from '../constants/halalRules';
 import { Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useTranslation } from '../hooks/useTranslation';
@@ -8,8 +8,31 @@ export function Knowledge() {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [rules, setRules] = useState<HalalRule[]>(HALAL_RULES);
 
-  const filteredRules = HALAL_RULES.filter(rule => {
+  useEffect(() => {
+    const loadBackendRules = async () => {
+      try {
+        const response = await fetch('/api/rules');
+        if (!response.ok) return;
+        const data = await response.json();
+        const backendRules: HalalRule[] = (data.rules || []).map((rule: any) => ({
+          id: rule.id,
+          category: rule.category,
+          title: rule.title,
+          content: `${rule.reason}${rule.e_numbers?.length ? ` E-numbers: ${rule.e_numbers.join(', ')}.` : ''}${rule.keywords?.length ? ` Keywords: ${rule.keywords.slice(0, 8).join(', ')}.` : ''}`,
+          source: rule.source
+        }));
+        if (backendRules.length > 0) setRules(backendRules);
+      } catch {
+        // Keep bundled frontend rules when Flask is not running.
+      }
+    };
+
+    loadBackendRules();
+  }, []);
+
+  const filteredRules = rules.filter(rule => {
     const title = t(`knowledge.rule_${rule.id}_title`) || rule.title;
     const content = t(`knowledge.rule_${rule.id}_content`) || rule.content;
     return title.toLowerCase().includes(search.toLowerCase()) || 

@@ -1,16 +1,56 @@
-import React, { useState } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import React, { useEffect, useState } from 'react';
+import { ScanRecord, useAppStore } from '../store/useAppStore';
 import { Badge } from '../components/Badge';
 import { Trash2 } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
 
 export function History() {
   const { t } = useTranslation();
-  const { scans, deleteScan, clearScans, getStats } = useAppStore();
+  const { scans, setScans, deleteScan, clearScans, getStats } = useAppStore();
   const [filter, setFilter] = useState('ALL');
   const stats = getStats();
 
-  const filteredScans = scans.filter(scan => filter === 'ALL' || scan.verdict === filter);
+  useEffect(() => {
+    const loadBackendHistory = async () => {
+      try {
+        const response = await fetch('/api/history');
+        if (!response.ok) return;
+        const data = await response.json();
+        const backendScans: ScanRecord[] = (data.history || []).map((item: any) => ({
+          id: item.id,
+          date: item.created_at,
+          barcode: item.product?.barcode || '',
+          name: item.product?.name || 'Unknown Product',
+          brand: item.product?.brand || 'Unknown Brand',
+          image: item.product?.image || null,
+          ingredients: item.ingredients || '',
+          verdict: item.final_verdict,
+          confidence: item.confidence,
+          flagged_ingredients: item.flagged_ingredients || [],
+          reason: item.reason,
+          recommendation: item.recommendation,
+          certification: item.certifying_body,
+          ingredient_results: item.ingredient_results,
+          triggered_rules: item.triggered_rules,
+          architectureDetails: item.architectureDetails
+        }));
+        if (backendScans.length > 0) setScans(backendScans);
+      } catch {
+        // Local persisted history remains available when Flask is not running.
+      }
+    };
+
+    loadBackendHistory();
+  }, [setScans]);
+
+  const matchesFilter = (scan: ScanRecord) => {
+    if (filter === 'ALL') return true;
+    if (filter === 'HALAL') return scan.verdict === 'HALAL' || scan.verdict === 'HALAL COMPLIANT';
+    if (filter === 'HARAM') return scan.verdict === 'HARAM' || scan.verdict === 'NON-COMPLIANT';
+    return scan.verdict === 'MASHBOOH' || scan.verdict === 'REQUIRES REVIEW';
+  };
+
+  const filteredScans = scans.filter(matchesFilter);
 
   const handleClear = () => {
     if (window.confirm(t('history.clear_confirm') || "Are you sure you want to delete all scans?")) {
@@ -67,9 +107,9 @@ export function History() {
           </div>
         ) : (
           filteredScans.map(item => {
-            const borderClass = item.verdict === 'HALAL' 
+            const borderClass = item.verdict === 'HALAL' || item.verdict === 'HALAL COMPLIANT'
               ? 'border-green-600' 
-              : item.verdict === 'HARAM' 
+              : item.verdict === 'HARAM' || item.verdict === 'NON-COMPLIANT'
               ? 'border-red-600' 
               : 'border-amber-600';
 

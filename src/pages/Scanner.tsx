@@ -8,6 +8,7 @@ import { useTranslation } from '../hooks/useTranslation';
 export function Scanner() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [manualText, setManualText] = useState('');
+  const [certifyingBody, setCertifyingBody] = useState('');
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [imageProcessingStep, setImageProcessingStep] = useState('Processing Photo...');
   const [showOcrReview, setShowOcrReview] = useState(false);
@@ -17,7 +18,12 @@ export function Scanner() {
   const [scannerError, setScannerError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { setPendingAnalysisImage, setPendingAnalysisImageOcrText, setPendingAnalysisText } = useAppStore();
+  const {
+    setPendingAnalysisImage,
+    setPendingAnalysisImageOcrText,
+    setPendingAnalysisText,
+    setPendingCertifyingBody
+  } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
 
@@ -86,6 +92,7 @@ export function Scanner() {
       alert("Enter a valid barcode");
       return;
     }
+    setPendingCertifyingBody(certifyingBody.trim());
     navigate(`/analysis?barcode=${manualBarcode.trim()}`);
   };
 
@@ -96,6 +103,7 @@ export function Scanner() {
       return;
     }
     setPendingAnalysisText(manualText.trim());
+    setPendingCertifyingBody(certifyingBody.trim());
     navigate('/analysis?type=text');
   };
 
@@ -113,10 +121,71 @@ export function Scanner() {
 
   const handleAnalyzeReviewedPhoto = () => {
     setPendingAnalysisImageOcrText(reviewOcrText.trim() || null);
+    setPendingCertifyingBody(certifyingBody.trim());
     navigate('/analysis?type=image');
   };
 
-  const handleCapturePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => resolve(event.target?.result as string);
+    reader.onerror = () => reject(new Error('Could not read selected file.'));
+    reader.readAsDataURL(file);
+  });
+
+  const compressImage = (base64: string) => new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_DIMENSION = 1600;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_DIMENSION) {
+          height *= MAX_DIMENSION / width;
+          width = MAX_DIMENSION;
+        }
+      } else if (height > MAX_DIMENSION) {
+        width *= MAX_DIMENSION / height;
+        height = MAX_DIMENSION;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(base64);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => reject(new Error('Could not load selected image.'));
+    img.src = base64;
+  });
+
+  const runBackendOcr = async (dataUrl: string, mimeType: string, filename: string, fallbackText = '') => {
+    const response = await fetch('/api/ocr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileBase64: dataUrl,
+        mimeType,
+        filename,
+        fallbackText
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Backend OCR failed.');
+    }
+
+    const data = await response.json();
+    return typeof data.text === 'string' ? data.text.trim() : '';
+  };
+
+  const handleCapturePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -126,75 +195,45 @@ export function Scanner() {
     setIsProcessingImage(true);
     setImageProcessingStep('Preparing Photo...');
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      
-      // Compress image to ensure it fits under Vercel's 4.5MB payload limit
-      const img = new Image();
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        const MAX_DIMENSION = 1600;
-        let width = img.width;
-        let height = img.height;
+    try {
+      const rawDataUrl = await readFileAsDataUrl(file);
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const uploadDataUrl = isPdf ? rawDataUrl : await compressImage(rawDataUrl);
+      const mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
+      const fileNameText = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
 
-        if (width > height) {
-          if (width > MAX_DIMENSION) {
-            height *= MAX_DIMENSION / width;
-            width = MAX_DIMENSION;
-          }
-        } else {
-          if (height > MAX_DIMENSION) {
-            width *= MAX_DIMENSION / height;
-            height = MAX_DIMENSION;
-          }
-        }
+      setPendingAnalysisImage(uploadDataUrl);
+      setReviewImagePreview(isPdf ? null : uploadDataUrl);
+      setPendingAnalysisImageOcrText(null);
+      setImageProcessingStep('Reading Label Text with Google Vision...');
 
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        let compressedBase64 = base64;
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
-          setPendingAnalysisImage(compressedBase64);
-        } else {
-          // Fallback if canvas fails
-          setPendingAnalysisImage(base64);
-        }
-        setReviewImagePreview(compressedBase64);
+      let extractedReviewText = '';
+      try {
+        extractedReviewText = await runBackendOcr(uploadDataUrl, mimeType, file.name);
+      } catch (ocrError) {
+        console.warn('Backend Google Vision OCR failed, attempting local OCR fallback for images:', ocrError);
+      }
 
-        setPendingAnalysisImageOcrText(null);
-        setImageProcessingStep('Reading Label Text...');
-        let extractedReviewText = '';
+      if (!extractedReviewText && !isPdf) {
         try {
+          setImageProcessingStep('Using Local OCR Fallback...');
           const { extractTextFromImage } = await import('../utils/localOcr');
-          const ocrText = await extractTextFromImage(compressedBase64);
-          const fileNameText = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
-          extractedReviewText = [ocrText, fileNameText].filter(Boolean).join(' ').trim();
+          extractedReviewText = await extractTextFromImage(uploadDataUrl);
         } catch (ocrError) {
-          console.warn('Local OCR failed, Gemini/offline fallback will handle image analysis:', ocrError);
-          extractedReviewText = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+          console.warn('Local OCR fallback failed:', ocrError);
         }
+      }
 
-        setReviewOcrText(extractedReviewText);
-        setPendingAnalysisImageOcrText(extractedReviewText || null);
-        setShowOcrReview(true);
-        setIsProcessingImage(false);
-      };
-      img.onerror = () => {
-        console.warn('Could not load selected image for analysis.');
-        setIsProcessingImage(false);
-        setScannerError('Could not read the selected image. Try another photo.');
-      };
-      img.src = base64;
-    };
-    reader.onerror = () => {
-      console.warn('Could not read selected image file.');
+      extractedReviewText = [extractedReviewText, fileNameText].filter(Boolean).join(' ').trim();
+      setReviewOcrText(extractedReviewText);
+      setPendingAnalysisImageOcrText(extractedReviewText || null);
+      setShowOcrReview(true);
       setIsProcessingImage(false);
+    } catch (error) {
+      console.warn('Could not process selected file.', error);
       setScannerError('Could not read the selected image. Try another photo.');
-    };
-    reader.readAsDataURL(file);
+      setIsProcessingImage(false);
+    }
   };
 
   const retryScanner = () => {
@@ -258,8 +297,7 @@ export function Scanner() {
         
         <input 
           type="file" 
-          accept="image/*" 
-          capture="environment" 
+          accept="image/*,application/pdf" 
           className="hidden" 
           ref={fileInputRef}
           onChange={handleCapturePhoto}
@@ -274,6 +312,11 @@ export function Scanner() {
                   alt="Ingredient label"
                   className="w-16 h-16 rounded-xl object-cover border border-white/10 bg-black/40"
                 />
+              )}
+              {!reviewImagePreview && (
+                <div className="w-16 h-16 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center text-[10px] font-bold text-white/60">
+                  PDF
+                </div>
               )}
               <textarea
                 className="min-h-24 flex-1 resize-none bg-white/10 rounded-xl px-4 py-3 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-xs leading-relaxed backdrop-blur-md"
@@ -317,10 +360,27 @@ export function Scanner() {
               ) : (
                 <>
                   <Camera size={20} className="text-[#C9A84C]" />
-                  <span>{t('scanner.snap_photo') || 'Snap Ingredients Photo'}</span>
+                  <span>{t('scanner.snap_photo') || 'Upload Label Photo / PDF'}</span>
                 </>
               )}
             </button>
+
+            <div className="flex flex-col gap-2">
+              <input
+                className="w-full bg-white/10 rounded-xl px-4 py-3 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
+                placeholder="Certifying body (JAKIM, MUI, IFANCA, HFA, ESMA)"
+                value={certifyingBody}
+                list="certifying-body-options"
+                onChange={(e) => setCertifyingBody(e.target.value)}
+              />
+              <datalist id="certifying-body-options">
+                <option value="JAKIM" />
+                <option value="MUI" />
+                <option value="IFANCA" />
+                <option value="HFA" />
+                <option value="ESMA" />
+              </datalist>
+            </div>
 
             <div className="flex items-center gap-3 w-full">
                <div className="h-px bg-white/10 flex-1"></div>
@@ -348,7 +408,7 @@ export function Scanner() {
             <form onSubmit={handleManualTextSubmit} className="flex flex-row relative mt-1">
               <input
                 className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
-                placeholder="Paste ingredients for offline analysis..."
+                placeholder="Paste ingredients for backend analysis..."
                 type="text"
                 value={manualText}
                 onChange={(e) => setManualText(e.target.value)}

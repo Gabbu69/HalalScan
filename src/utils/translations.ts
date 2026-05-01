@@ -56,7 +56,7 @@ export const translations: Translations = {
 
     // Scanner
     'scanner.title': 'Product Scanner',
-    'scanner.processing': 'Analyzing with Gemini...',
+    'scanner.processing': 'Analyzing with Flask backend...',
     'scanner.align': 'Align ingredients within frame',
     'scanner.capture': 'Capture Image',
 
@@ -128,7 +128,7 @@ export const translations: Translations = {
     'onboarding.s1_title': 'Welcome to HalalScan',
     'onboarding.s1_desc': 'Your AI-powered assistant for making informed dietary choices.',
     'onboarding.s2_title': 'Scan with AI',
-    'onboarding.s2_desc': 'Instantly analyze ingredients using Gemini Vision AI.',
+    'onboarding.s2_desc': 'Extract labels with Google Vision and verify ingredients with rule-backed AI.',
     'onboarding.s3_title': 'Ask the Assistant',
     'onboarding.s3_desc': 'Get quick answers about complex food ingredients.',
   },
@@ -186,7 +186,7 @@ export const translations: Translations = {
 
     // Scanner
     'scanner.title': 'Product Scanner',
-    'scanner.processing': 'Sinusuri ng Gemini...',
+    'scanner.processing': 'Sinusuri ng backend...',
     'scanner.align': 'Ihanay ang mga sangkap sa loob ng frame',
     'scanner.capture': 'Kuhanan ng Larawan',
 
@@ -248,7 +248,7 @@ export const translations: Translations = {
     'onboarding.s1_title': 'Maligayang pagdating sa HalalScan',
     'onboarding.s1_desc': 'Ang iyong AI assistant para sa matalinong pagpili ng pagkain.',
     'onboarding.s2_title': 'I-scan gamit ang AI',
-    'onboarding.s2_desc': 'Mabilis na suriin ang mga sangkap gamit ang Gemini Vision AI.',
+    'onboarding.s2_desc': 'Mabilis na suriin ang mga sangkap gamit ang OCR at rule-backed AI.',
     'onboarding.s3_title': 'Magtanong sa Assistant',
     'onboarding.s3_desc': 'Kumuha ng mabilis na sagot tungkol sa mga sangkap.',
   },
@@ -368,7 +368,7 @@ export const translations: Translations = {
     'onboarding.s1_title': 'مرحباً في HalalScan',
     'onboarding.s1_desc': 'مساعدك الذكي لاتخاذ قرارات غذائية مستنيرة.',
     'onboarding.s2_title': 'امسح بالذكاء الاصطناعي',
-    'onboarding.s2_desc': 'قم بتحليل المكونات فوراً باستخدام Gemini Vision.',
+    'onboarding.s2_desc': 'قم بتحليل المكونات باستخدام OCR وقواعد التحقق.',
     'onboarding.s3_title': 'اسأل المساعد',
     'onboarding.s3_desc': 'احصل على إجابات سريعة حول المكونات المعقدة.',
   }

@@ -5,12 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
+    "backend": "python -m backend.app",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "evaluate": "tsx test_ml.ts",
     "test:ml": "tsx test_ml.ts",
+    "test:backend": "python -m pytest backend",
+    "test:vercel-api": "tsx test_vercel_api.ts",
     "test:api": "node test_local_api.js",
     "test:gemini": "node test_gemini.js"
   },

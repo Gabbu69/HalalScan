@@ -9,11 +9,14 @@ export interface ScanRecord {
   brand: string;
   image: string | null;
   ingredients: string;
-  verdict: 'HALAL' | 'HARAM' | 'MASHBOOH';
+  verdict: 'HALAL' | 'HARAM' | 'MASHBOOH' | 'HALAL COMPLIANT' | 'NON-COMPLIANT' | 'REQUIRES REVIEW';
   confidence: number;
   flagged_ingredients: string[];
   reason: string;
   recommendation: string;
+  certification?: any;
+  ingredient_results?: any[];
+  triggered_rules?: string[];
   architectureDetails?: any;
 }
 
@@ -26,6 +29,7 @@ interface AppState {
   pendingAnalysisImage: string | null;
   pendingAnalysisImageOcrText: string | null;
   pendingAnalysisText: string | null;
+  pendingCertifyingBody: string;
   userLocation: { lat: number; lng: number } | null;
   locationPermissionStatus: 'prompt' | 'granted' | 'denied';
   userProfile: { name: string; email: string; avatar: string | null };
@@ -40,11 +44,13 @@ interface AppState {
   updateUserProfile: (profile: Partial<{ name: string; email: string; avatar: string | null }>) => void;
   
   addScan: (scan: ScanRecord) => void;
+  setScans: (scans: ScanRecord[]) => void;
   deleteScan: (id: string) => void;
   clearScans: () => void;
   setPendingAnalysisImage: (base64: string | null) => void;
   setPendingAnalysisImageOcrText: (text: string | null) => void;
   setPendingAnalysisText: (text: string | null) => void;
+  setPendingCertifyingBody: (text: string) => void;
 
   getStats: () => { total: number; halal: number; haram: number; mashbooh: number };
 }
@@ -60,6 +66,7 @@ export const useAppStore = create<AppState>()(
       pendingAnalysisImage: null,
       pendingAnalysisImageOcrText: null,
       pendingAnalysisText: null,
+      pendingCertifyingBody: '',
       userLocation: null,
       locationPermissionStatus: 'prompt',
       userProfile: { name: 'Guest User', email: 'guest@example.com', avatar: null },
@@ -83,6 +90,7 @@ export const useAppStore = create<AppState>()(
       addScan: (scan) => set((state) => ({ 
         scans: [scan, ...state.scans] 
       })),
+      setScans: (scans) => set({ scans }),
       deleteScan: (id) => set((state) => ({ 
         scans: state.scans.filter(s => s.id !== id) 
       })),
@@ -90,14 +98,15 @@ export const useAppStore = create<AppState>()(
       setPendingAnalysisImage: (base64) => set({ pendingAnalysisImage: base64 }),
       setPendingAnalysisImageOcrText: (text) => set({ pendingAnalysisImageOcrText: text }),
       setPendingAnalysisText: (text) => set({ pendingAnalysisText: text }),
+      setPendingCertifyingBody: (text) => set({ pendingCertifyingBody: text }),
 
       getStats: () => {
         const scans = get().scans;
         return {
           total: scans.length,
-          halal: scans.filter(s => s.verdict === 'HALAL').length,
-          haram: scans.filter(s => s.verdict === 'HARAM').length,
-          mashbooh: scans.filter(s => s.verdict === 'MASHBOOH').length,
+          halal: scans.filter(s => s.verdict === 'HALAL' || s.verdict === 'HALAL COMPLIANT').length,
+          haram: scans.filter(s => s.verdict === 'HARAM' || s.verdict === 'NON-COMPLIANT').length,
+          mashbooh: scans.filter(s => s.verdict === 'MASHBOOH' || s.verdict === 'REQUIRES REVIEW').length,
         };
       }
     }),

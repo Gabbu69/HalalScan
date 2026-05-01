@@ -1,90 +1,64 @@
-# Technical Report: HalalScan Neuro-Symbolic Reasoning System
-
-**Author:** Joseph C. Lorilla, Faculty, Department of Computing and Library Information Science
-**Course:** Artificial Intelligence Systems
-
----
+# Technical Report: HalalScan DOCX-Compliant Architecture
 
 ## 1. System Architecture
-HalalScan is designed as a scalable, serverless web application that utilizes a **Neuro-Symbolic AI architecture**. The frontend is developed in React (TypeScript) and hosted on Vercel, ensuring high availability and rapid client-side rendering.
 
-The system's intelligence layer consists of three primary components:
-1.  **Rule-Based Inference Engine (Symbolic):** A deterministic engine executing locally in the client/serverless environment.
-2.  **Statistical Machine Learning Model (Sub-symbolic):** A lightweight TF-IDF and Naive Bayes classifier for probabilistic scoring.
-3.  **Gemini API Enhancement:** An external API proxy accessed securely via server-side API routes to handle OCR, semantic ambiguity, and richer explanations.
+HalalScan now uses the architecture specified in the proposal document:
 
-This architecture ensures that the system is fast, secure (no exposed API keys), highly interpretable, and offline-first for text/barcode ingredient analysis. Photo scans include an editable OCR review step before final inference.
+1. **React frontend** for barcode scanning, label upload, OCR review, certifying-body input, results, rules, and history.
+2. **Python Flask backend** as the primary `/api` service.
+3. **Vercel TypeScript serverless adapter** with matching API behavior for deployed builds.
+4. **Google Vision OCR** for product label images and first 5 PDF pages.
+5. **RapidAPI Halal Food Checker** as the primary per-ingredient ML classification layer.
+6. **Knowledge-Based Reasoning (KBR)** over a structured 60-rule halal knowledge base.
+7. **SQLite storage** for local Flask scan history and cached RapidAPI ingredient classifications.
 
----
+The previous Gemini/Tesseract/local Naive Bayes components remain available only as fallback support when the Flask backend or live credentials are unavailable.
 
-## 2. Integration of ML and KR&R (Neuro-Symbolic Approach)
-The defining feature of HalalScan is its integration of Machine Learning (ML) with Knowledge Representation and Reasoning (KR&R). 
+## 2. Data Flow
 
-Pure ML models (like neural networks) act as "black boxes," making them unsuitable for religious compliance where the *reasoning* is as important as the *verdict*. Conversely, pure symbolic systems are brittle and struggle with typos or novel ingredient names.
+User input follows this path:
 
-HalalScan merges them:
-*   The **ML Model** provides a probabilistic `confidence score` by vectorizing the ingredient text and comparing it against historical training distributions.
-*   The **KR&R Engine** acts as an absolute safeguard. Even if the ML model predicts "Halal" with 90% confidence, if the KR&R engine detects a hard-coded rule violation (e.g., the presence of "E120"), the Symbolic engine overrides the ML model, demonstrating a `HARAM > MASHBOOH > HALAL` priority hierarchy.
-*   If Gemini is unavailable, local ML plus KR&R still returns a verdict instead of blocking the user.
+`Image/PDF/Text/Barcode -> Google Vision or OpenFoodFacts -> RapidAPI Ingredient Classifier -> Knowledge Base Lookup -> Reasoning Engine -> Verdict -> SQLite History -> React Results`
 
----
+The scanner accepts ingredient photos, PDFs, manual text, and barcodes. For image/PDF inputs, the frontend calls `POST /api/ocr`, shows editable extracted text, then submits the reviewed text to `POST /api/analyze`.
 
-## 3. Knowledge Base Design
-The Knowledge Base (`src/constants/halalRules.ts`) is formulated as a structured array of heuristic rules and encyclopedic facts.
+On Vercel, `api/*.ts` implements the same public routes. Serverless functions cannot persist SQLite on the platform, so Vercel scan history is maintained by frontend localStorage, while `/api/history` returns the current serverless-memory view.
 
-**Schema:**
-Each rule contains a unique `id`, `category` (e.g., Additives, Slaughter Method), `title`, detailed `content`, and a verifiable `source` (e.g., JAKIM, IFANCA).
+## 3. Verdict Logic
 
-**Data Structures:**
-*   **Rules Array:** 15 distinct rules covering everything from Zabiha requirements to alcohol as a solvent.
-*   **E-Numbers Dictionary:** A strict categorization of chemical additives split into arrays of HARAM (e.g., E904, E542), MASHBOOH (e.g., E471), and HALAL (e.g., E300).
-*   **Keyword Triggers:** 104 executable keyword rules and 40 E-number triggers, including pork derivatives, alcohol terms, ambiguous animal-source ingredients, and insufficient-data handling.
+The backend returns proposal-aligned verdict labels:
 
-This structured approach allows the reasoning engine to map raw string tokens directly to authoritative fatwas and international standards.
+- `NON-COMPLIANT`: at least one ingredient is haram by RapidAPI or knowledge-base rule.
+- `HALAL COMPLIANT`: all ingredients are clear and the certifying body is recognized.
+- `REQUIRES REVIEW`: any ingredient is doubtful/unknown, or the certifying body is missing/unrecognized.
 
----
+Recognized certifying bodies are JAKIM, MUI, IFANCA, HFA, and ESMA. The system does not claim to verify official certificate authenticity; it checks whether the named body is in the maintained trusted list.
 
-## 4. Reasoning Engine Logic
-The engine (`src/utils/reasoningEngine.ts`) implements **Forward Chaining**, starting from known facts and applying rules to extract a conclusion.
+## 4. Knowledge Base
 
-1.  **Fact Extraction:** The engine tokenizes the user's ingredient input into an array of base facts.
-2.  **Rule Application:** The engine iterates through the E-Numbers list and Keyword lists. When a fact matches a rule predicate, the engine derives a new state (e.g., `haramScore += 100`).
-3.  **Conflict Resolution:** It is common for a product to contain both Halal and Haram ingredients. The engine uses priority tiers: The presence of a single Haram item instantly escalates the global state to HARAM, regardless of the volume of Halal items. 
-4.  **Uncertainty Handling:** If MASHBOOH items are found without any HARAM items, the system enters an uncertain state, prompting the user for further clarification (e.g., checking for a Halal logo).
-5.  **Input Quality Guard:** Empty, unknown, or placeholder ingredient text is treated as MASHBOOH rather than HALAL.
-6.  **Traceability:** A `logicPath` string array is continuously updated at every step, documenting exactly why a decision was reached.
+The backend knowledge base is stored in `backend/data/halal_rules.json` and contains:
 
----
+- Haram additive rules such as E120, E542, E904, and E920.
+- Doubtful additive rules such as E441, E471-E477, E481-E483, E422, E470, and E570.
+- Pork, blood, alcohol, animal enzyme, dairy, meat, seafood, plant, processing, and certification rules.
+- Rule IDs, categories, statuses, reasons, keywords, E-number mappings, and sources.
 
-## 5. Sample Results
+The reasoning engine records a logic path and triggered rule IDs for explainability.
 
-**Test Input 1:** "Water, sugar, E120, natural flavors"
-*   **Extracted Facts:** water, sugar, e120, natural, flavors
-*   **ML Prediction:** HARAM (Confidence: 0.85)
-*   **Symbolic Logic Path:**
-    1. `[FORWARD CHAINING INIT] Extracting base facts from ingredients.`
-    2. `Extracted facts: 5 tokens found.`
-    3. `Rule match [R001]: Found Haram E-Number E120.`
-    4. `Rule match: Found Mashbooh keyword "natural flavors". Status ambiguous.`
-    5. `[CONFLICT RESOLUTION] Evaluating derived facts against priority tiers.`
-    6. `Resolution: HARAM tier prioritized. Verdict: HARAM.`
-*   **Final Output:** HARAM.
+## 5. Evaluation
 
-**Test Input 2:** "Wheat flour, salt, yeast"
-*   **ML Prediction:** HALAL (Confidence: 0.98)
-*   **Symbolic Logic Path:**
-    1. `Extracted facts: 4 tokens found.`
-    2. `[CONFLICT RESOLUTION] Evaluating derived facts against priority tiers.`
-    3. `Resolution: No Haram/Mashbooh conflicts. Verdict: HALAL.`
-*   **Final Output:** HALAL.
+Implemented checks:
 
----
+- `npm run lint`: TypeScript type checking.
+- `npm run evaluate`: existing local ML/KR&R coursework evaluation.
+- `npm run test:backend`: Flask tests covering rules, certification, OCR no-credential fallback, history, and verdict logic.
+- `npm run test:vercel-api`: direct tests for Vercel serverless health, rules, OCR fallback, and the three verdict outcomes.
+
+Backend tests use no live keys, so they are reproducible in a classroom environment. Live Google Vision and RapidAPI behavior can be smoke-tested after setting `GOOGLE_APPLICATION_CREDENTIALS` and `RAPIDAPI_KEY`.
 
 ## 6. Limitations
-*   **Incomplete Data:** The KR&R engine is only as good as its dictionary. Novel chemical names not explicitly listed in the Mashbooh or Haram arrays might bypass the symbolic check.
-*   **Language Dependency:** The current TF-IDF and KR&R implementations are heavily optimized for English ingredient lists.
-*   **Context Blindness:** The system cannot physically verify if cross-contamination occurred at the factory level, relying entirely on the provided text.
-*   **Future Improvements:** Add halal-logo recognition, a 100+ real-product dataset, multilingual dictionaries, an admin KB update workflow, and a verified halal retailer/certification data source.
 
-## 7. Conclusion
-HalalScan successfully demonstrates the application of a Neuro-Symbolic AI framework to dietary compliance. By combining the rigorous, explainable logic of a rule-based expert system with the probabilistic adaptability of a machine learning classifier, the project achieves a high degree of accuracy and trustworthiness. This hybrid approach is critical for domains like religious compliance, where human-readable justifications are mandatory.
+- Live OCR and RapidAPI classification require external credentials.
+- Certifying-body verification is list-based, not an official certificate database lookup.
+- The knowledge base is maintainable but still needs expert review for production use.
+- Non-English labels may require OCR support plus translation before reliable ingredient reasoning.

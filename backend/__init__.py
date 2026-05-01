@@ -1,0 +1,2 @@
+"""HalalScan Flask backend package."""
+

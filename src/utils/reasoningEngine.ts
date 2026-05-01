@@ -27,7 +27,7 @@ export const KNOWLEDGE_BASE = {
 
 const normalizeText = (value: string) => value
   .toLowerCase()
-  .replace(/[â€â€‘â€’â€“â€”]/g, '-')
+  .replace(/[\u2010-\u2015]/g, '-')
   .replace(/\be[\s-]+(?=\d)/g, 'e');
 
 const INSUFFICIENT_INGREDIENT_PATTERNS = [
