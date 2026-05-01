@@ -10,7 +10,9 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "evaluate": "tsx test_ml.ts",
-    "test:ml": "tsx test_ml.ts"
+    "test:ml": "tsx test_ml.ts",
+    "test:api": "node test_local_api.js",
+    "test:gemini": "node test_gemini.js"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

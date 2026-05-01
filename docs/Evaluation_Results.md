@@ -10,13 +10,13 @@ HalalScan is evaluated as a hybrid neuro-symbolic system:
 
 ## 2. Local ML Fallback Evaluation
 
-The local fallback model in `src/utils/mlModel.ts` is trained on **48 labeled ingredient samples** across HALAL, HARAM, and MASHBOOH classes. It uses unigram, bigram, and trigram features, producing a vocabulary of **434 weighted features**.
+The local fallback model in `src/utils/mlModel.ts` is trained on **58 labeled ingredient samples** across HALAL, HARAM, and MASHBOOH classes. It uses unigram, bigram, and trigram features, producing a vocabulary of **508 weighted features**.
 
-Evaluation is implemented in `src/utils/modelEvaluation.ts` with a balanced 30-case holdout set.
+Evaluation is implemented in `src/utils/modelEvaluation.ts` with a 36-case holdout set plus edge-case regression checks in `test_ml.ts`.
 
 | Metric | Value |
 |--------|-------|
-| **Accuracy** | 100.0% (30/30) |
+| **Accuracy** | 100.0% (36/36) |
 | **Macro-Average F1** | 1.00 |
 | **Weighted-Average F1** | 1.00 |
 
@@ -26,8 +26,8 @@ Evaluation is implemented in `src/utils/modelEvaluation.ts` with a balanced 30-c
                  Predicted
               HALAL  HARAM  MASHBOOH
 Actual HALAL  [ 10     0       0   ]
-       HARAM  [  0    10       0   ]
-    MASHBOOH  [  0     0      10   ]
+       HARAM  [  0    13       0   ]
+    MASHBOOH  [  0     0      13   ]
 ```
 
 ## 3. KR&R Engine Evaluation
@@ -58,7 +58,14 @@ Actual HALAL  [ 10     0       0   ]
 
 ### KR&R Improvements
 
-The rule engine now catches the previous false negative on **prosciutto** by expanding pork-derived keyword coverage. It also normalizes E-number variants such as `E-120` and avoids substring false positives such as matching `E120` inside `E1200`.
+The rule engine now catches the previous false negative on **prosciutto** by expanding pork-derived keyword coverage. It also catches `pig`, `swine`, `porcine`, `boar`, pork stock/broth/flavor terms, and treats missing ingredient placeholders as MASHBOOH. It normalizes E-number variants such as `E-120` and avoids substring false positives such as matching `E120` inside `E1200`.
+
+Additional regression checks verify:
+
+- `No ingredients listed` -> MASHBOOH
+- `pig fat`, `porcine gelatin`, `swine extract` -> HARAM
+- `beef gelatin`, `bovine gelatin`, `animal shortening` -> MASHBOOH
+- `E-120` -> HARAM, while `E1200` is not falsely flagged as E120
 
 ## 4. Why the Hybrid Architecture Matters
 
@@ -87,7 +94,8 @@ This prints:
 
 ## 6. Limitations
 
-- The 30-case holdout sets are useful for coursework evidence, but they are still small. A stronger final version should include 100+ real scanned products.
+- The 30-case KR&R dataset and 36-case local ML holdout set are useful for coursework evidence, but they are still small. A stronger final version should include 100+ real scanned products.
 - The local ML model is intentionally lightweight and interpretable; Gemini remains the stronger component for OCR and semantic parsing.
 - The knowledge base still requires manual expert maintenance for new additives, regional ingredient names, and multilingual labels.
 - Certification logo handling is described in the rules, but actual logo recognition is not yet implemented.
+- A larger real-product dataset, multilingual dictionaries, an admin KB update workflow, halal-logo recognition, and real halal retailer/certification data are recommended next improvements. User-editable OCR correction is now implemented in the photo scan flow.

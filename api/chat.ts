@@ -1,40 +1,42 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
-import { getGeminiApiKey, GEMINI_ENV_KEYS } from './_gemini';
+import { buildMissingApiKeyError, extractGeminiErrorMessage, getGeminiApiKey, getGeminiModel } from './_gemini';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+    return res.status(405).json({ code: 'METHOD_NOT_ALLOWED', error: 'Method Not Allowed' });
   }
 
   const { prompt } = req.body;
+  if (typeof prompt !== 'string' || !prompt.trim()) {
+    return res.status(400).json({
+      code: 'INVALID_PROMPT',
+      error: 'A non-empty prompt string is required.'
+    });
+  }
+
   const { apiKey, envName } = getGeminiApiKey();
 
   if (!apiKey) {
-    return res.status(500).json({
-      error: `Gemini API key is not configured on the server. Add one of these Vercel environment variables: ${GEMINI_ENV_KEYS.join(', ')}.`
-    });
+    return res.status(503).json(buildMissingApiKeyError());
   }
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    console.log(`Gemini chat request using ${envName}.`);
+    const model = getGeminiModel();
+    console.log(`Gemini chat request using ${envName} with ${model}.`);
     
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
+      model,
+      contents: prompt.trim(),
     });
 
-    return res.status(200).json({ text: response.text });
-  } catch (error: any) {
-    console.error("Backend Gemini Chat Error:", error);
-    let errorMessage = error.message || 'Failed to process request';
-    try {
-      const parsed = JSON.parse(errorMessage);
-      if (parsed.error && parsed.error.message) {
-        errorMessage = parsed.error.message;
-      }
-    } catch (e) {}
-    return res.status(500).json({ error: errorMessage });
+    return res.status(200).json({ text: response.text || '' });
+  } catch (error) {
+    console.error('Backend Gemini Chat Error:', error);
+    return res.status(502).json({
+      code: 'GEMINI_UPSTREAM_ERROR',
+      error: extractGeminiErrorMessage(error)
+    });
   }
 }

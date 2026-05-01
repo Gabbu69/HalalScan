@@ -6,7 +6,11 @@ export const KNOWLEDGE_BASE = {
     'pork', 'lard', 'bacon', 'ham', 'pepperoni', 'chorizo', 'pork fat', 'pork gelatin',
     'pork belly', 'pork blood', 'pork enzymes', 'pork rinds', 'prosciutto', 'pancetta',
     'guanciale', 'mortadella', 'coppa', 'speck', 'jamon', 'jamon serrano', 'serrano ham',
-    'chicharron',
+    'chicharron', 'pig', 'pig fat', 'pig gelatin', 'pig oil', 'pig extract', 'pig enzymes',
+    'swine', 'swine fat', 'swine gelatin', 'swine extract', 'swine enzymes',
+    'porcine', 'porcine fat', 'porcine gelatin', 'porcine extract', 'porcine enzymes',
+    'boar', 'boar fat', 'boar meat', 'pork stock', 'pork broth', 'pork flavor',
+    'pork flavour', 'pork oil', 'pork extract', 'pork shortening',
     'alcohol', 'ethanol', 'wine', 'beer', 'rum', 'vodka', 'whiskey', 'brandy', 'liqueur',
     'bourbon', 'sake', 'sherry', 'marsala', 'cognac', 'mirin',
     'blood', 'carmine', 'cochineal', 'shellac', 'bone phosphate', 'l-cysteine'
@@ -15,8 +19,40 @@ export const KNOWLEDGE_BASE = {
     'gelatin', 'gelatine', 'glycerin', 'glycerol', 'mono and diglycerides', 'monoglycerides', 'diglycerides',
     'calcium stearate', 'magnesium stearate', 'whey', 'rennet', 'natural flavors', 'artificial flavor',
     'emulsifier', 'stabilizer', 'lecithin', 'soy lecithin', 'confectioner\'s glaze',
-    'confectioners glaze', 'pepsin', 'lipase', 'trypsin'
+    'confectioners glaze', 'pepsin', 'lipase', 'trypsin', 'enzymes', 'enzyme',
+    'beef gelatin', 'bovine gelatin', 'animal gelatin', 'animal fat', 'animal shortening',
+    'animal enzymes', 'animal rennet', 'beef tallow', 'beef fat', 'tallow', 'shortening'
   ]
+};
+
+const normalizeText = (value: string) => value
+  .toLowerCase()
+  .replace(/[â€â€‘â€’â€“â€”]/g, '-')
+  .replace(/\be[\s-]+(?=\d)/g, 'e');
+
+const INSUFFICIENT_INGREDIENT_PATTERNS = [
+  /^no ingredients?$/,
+  /^no ingredients? listed$/,
+  /^no ingredients? available$/,
+  /^ingredients? unavailable$/,
+  /^ingredients? not available$/,
+  /^ingredients? not listed$/,
+  /^ingredients? not provided$/,
+  /^ingredients? not found$/,
+  /^ingredients? unknown$/,
+  /^unknown$/,
+  /^unknown ingredients?$/,
+  /^not available$/,
+  /^n\/?a$/
+];
+
+export const hasUsableIngredientText = (ingredientsText: string) => {
+  const normalized = normalizeText(ingredientsText)
+    .replace(/[^a-z0-9/\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return Boolean(normalized) && !INSUFFICIENT_INGREDIENT_PATTERNS.some(pattern => pattern.test(normalized));
 };
 
 const OCR_HARAM_PATTERNS: Array<{ ingredient: string; ruleId: string; patterns: RegExp[] }> = [
@@ -53,8 +89,16 @@ export type InferenceResult = {
 };
 
 export const runRuleBasedInference = (ingredientsText: string): InferenceResult => {
-  if (!ingredientsText) {
-    return { status: 'UNKNOWN', confidence: 0, flags: [], logicPath: ['No base facts provided.'] };
+  if (!ingredientsText || !hasUsableIngredientText(ingredientsText)) {
+    return {
+      status: 'MASHBOOH',
+      confidence: 0.55,
+      flags: [{ ingredient: 'insufficient ingredient information', type: 'MASHBOOH', ruleId: 'INSUFFICIENT_DATA' }],
+      logicPath: [
+        '[FORWARD CHAINING INIT] No usable ingredient facts were provided.',
+        'Resolution: insufficient data is treated as MASHBOOH until the product label can be verified.'
+      ]
+    };
   }
   
   const normalizeText = (value: string) => value

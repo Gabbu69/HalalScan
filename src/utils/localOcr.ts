@@ -46,8 +46,16 @@ export const extractTextFromImage = async (imageBase64: string) => {
     });
     const preparedResult = await worker.recognize(preparedImage);
     const originalResult = await worker.recognize(imageBase64);
-    const combinedText = `${preparedResult.data.text} ${originalResult.data.text}`;
-    return Array.from(new Set(combinedText.split(/\s+/).filter(Boolean))).join(' ').trim();
+    const preparedText = preparedResult.data.text.replace(/\s+/g, ' ').trim();
+    const originalText = originalResult.data.text.replace(/\s+/g, ' ').trim();
+    const primaryText = preparedText.length >= originalText.length ? preparedText : originalText;
+    const secondaryText = primaryText === preparedText ? originalText : preparedText;
+
+    if (!secondaryText || primaryText.toLowerCase().includes(secondaryText.toLowerCase())) {
+      return primaryText;
+    }
+
+    return `${primaryText} ${secondaryText}`.trim();
   } finally {
     await worker.terminate();
   }

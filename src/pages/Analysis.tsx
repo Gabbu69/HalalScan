@@ -98,7 +98,28 @@ export function Analysis() {
           const product = await fetchProductByBarcode(barcode);
           
           if (!product) {
-            setErrorMsg("Product not found in the OpenFoodFacts database. Try scanning the ingredients list via the camera instead.");
+            setStep('OpenFoodFacts has no ingredient record. Marking as doubtful...');
+            const missingIngredients = 'No ingredients listed.';
+            const integratedData = await runIntegratedAnalysis('Unknown Barcode Product', missingIngredients, madhab);
+
+            const finalScan: ScanRecord = {
+              id: Date.now().toString(),
+              date: new Date().toISOString(),
+              barcode: barcode,
+              name: 'Unknown Barcode Product',
+              brand: 'OpenFoodFacts unavailable',
+              image: null,
+              ingredients: missingIngredients,
+              verdict: integratedData.finalVerdict,
+              confidence: integratedData.confidence,
+              flagged_ingredients: integratedData.flagged_ingredients,
+              reason: integratedData.reason,
+              recommendation: integratedData.recommendation,
+              architectureDetails: integratedData.architectureDetails
+            };
+
+            setResult(finalScan);
+            useAppStore.getState().addScan(finalScan);
             setLoading(false);
             return;
           }

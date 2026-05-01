@@ -13,7 +13,8 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     service: 'HalalScan API',
     gemini: {
       configured: gemini.configured,
-      configuredEnvNames: gemini.configuredEnvNames
+      configuredEnvNames: gemini.configuredEnvNames,
+      model: gemini.model
     }
   });
 }

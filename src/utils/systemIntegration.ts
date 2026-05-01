@@ -1,4 +1,4 @@
-import { runRuleBasedInference, InferenceResult } from './reasoningEngine';
+import { hasUsableIngredientText, runRuleBasedInference, InferenceResult } from './reasoningEngine';
 import { analyzeProductWithGemini, analyzeImageWithGemini } from './geminiApi';
 import { scoreIngredients } from './mlModel';
 
@@ -59,6 +59,21 @@ export const runIntegratedAnalysis = async (productName: string, ingredients: st
 
   const krrResult = runRuleBasedInference(ingredients);
   integrationLogs.push(`KR&R Engine completed. Preliminary status: ${krrResult.status}.`);
+
+  if (!hasUsableIngredientText(ingredients)) {
+    integrationLogs.push('Input quality guard activated. No usable ingredient list was available, so external ML was skipped.');
+    const mlResult = {
+      verdict: 'MASHBOOH',
+      confidence: 55,
+      reason: 'Insufficient ingredient information is available. The system cannot confirm halal status without a readable ingredients list.',
+      flagged_ingredients: krrResult.flags.map(flag => flag.ingredient),
+      recommendation: 'Scan the ingredients photo or paste the label text before consuming. Until verified, treat this product as doubtful.',
+      name: productName,
+      ingredients
+    };
+
+    return buildConsensus(mlResult, krrResult, integrationLogs);
+  }
 
   integrationLogs.push('Dispatching payload to Machine Learning Inferencing endpoint...');
   let mlResult;

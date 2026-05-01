@@ -5,9 +5,11 @@ HalalScan is a modern React application built to help users quickly scan and ide
 ## Features
 
 - **Product Scanning**: Built-in barcode and QR code scanner using `html5-qrcode`.
+- **Photo OCR Review**: Users can correct extracted ingredient text before the final analysis.
 - **AI-Powered Analysis**: Integrates with Google GenAI for intelligent product assessment.
+- **Offline-First Analysis**: Manual text, barcode ingredients, and OCR text still produce a verdict when Gemini is missing or down.
 - **Local ML Fallback**: TF-IDF weighted Naive Bayes classifier for offline ingredient scoring.
-- **Knowledge-Based Reasoning**: Rule engine checks E-numbers, pork derivatives, alcohol, enzymes, and doubtful additives with an explainable logic trace.
+- **Knowledge-Based Reasoning**: Rule engine checks E-numbers, pork derivatives, alcohol, enzymes, missing ingredient data, and doubtful additives with an explainable logic trace.
 - **Modern UI**: Styled with Tailwind CSS for a sleek, responsive, and accessible interface.
 - **Fast & Optimized**: Bootstrapped with Vite and React 19 for blazing-fast development and optimized production builds.
 
@@ -76,6 +78,16 @@ https://your-vercel-domain.vercel.app/api/health
 ```
 
 The response should show `"configured": true` under `gemini`.
+
+For local development, `npm run dev` mounts the same `/api/health`, `/api/analyze`, and `/api/chat` routes used by Vercel. If no Gemini key is configured, scans fall back to local ML + KR&R and the API returns a clear `GEMINI_API_KEY_MISSING` JSON error for Gemini-only calls.
+
+## Suggested Improvements
+
+- Add halal certification/logo recognition.
+- Expand evaluation to 100+ real scanned products.
+- Add multilingual ingredient dictionaries.
+- Add an admin workflow for knowledge-base updates.
+- Replace demo nearby retailer data with a verified places or certification source.
 
 ## Contributing
 

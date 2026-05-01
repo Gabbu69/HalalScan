@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Button } from '../components/Button';
-import { Search, Camera, Loader2, RefreshCw, X } from 'lucide-react';
+import { Search, Camera, Loader2, RefreshCw, X, Check } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useTranslation } from '../hooks/useTranslation';
 
@@ -11,6 +10,9 @@ export function Scanner() {
   const [manualText, setManualText] = useState('');
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [imageProcessingStep, setImageProcessingStep] = useState('Processing Photo...');
+  const [showOcrReview, setShowOcrReview] = useState(false);
+  const [reviewOcrText, setReviewOcrText] = useState('');
+  const [reviewImagePreview, setReviewImagePreview] = useState<string | null>(null);
   const [isScannerReady, setIsScannerReady] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -97,10 +99,30 @@ export function Scanner() {
     navigate('/analysis?type=text');
   };
 
+  const clearPhotoReview = () => {
+    setShowOcrReview(false);
+    setReviewOcrText('');
+    setReviewImagePreview(null);
+    setPendingAnalysisImage(null);
+    setPendingAnalysisImageOcrText(null);
+    setIsProcessingImage(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleAnalyzeReviewedPhoto = () => {
+    setPendingAnalysisImageOcrText(reviewOcrText.trim() || null);
+    navigate('/analysis?type=image');
+  };
+
   const handleCapturePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setShowOcrReview(false);
+    setReviewOcrText('');
+    setReviewImagePreview(null);
     setIsProcessingImage(true);
     setImageProcessingStep('Preparing Photo...');
 
@@ -140,26 +162,37 @@ export function Scanner() {
           // Fallback if canvas fails
           setPendingAnalysisImage(base64);
         }
+        setReviewImagePreview(compressedBase64);
 
         setPendingAnalysisImageOcrText(null);
         setImageProcessingStep('Reading Label Text...');
+        let extractedReviewText = '';
         try {
           const { extractTextFromImage } = await import('../utils/localOcr');
           const ocrText = await extractTextFromImage(compressedBase64);
           const fileNameText = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
-          const combinedText = [ocrText, fileNameText].filter(Boolean).join(' ').trim();
-          setPendingAnalysisImageOcrText(combinedText || null);
+          extractedReviewText = [ocrText, fileNameText].filter(Boolean).join(' ').trim();
         } catch (ocrError) {
           console.warn('Local OCR failed, Gemini/offline fallback will handle image analysis:', ocrError);
-          const fileNameText = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
-          setPendingAnalysisImageOcrText(fileNameText || null);
+          extractedReviewText = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
         }
 
-        setTimeout(() => {
-           navigate('/analysis?type=image');
-        }, 100);
+        setReviewOcrText(extractedReviewText);
+        setPendingAnalysisImageOcrText(extractedReviewText || null);
+        setShowOcrReview(true);
+        setIsProcessingImage(false);
+      };
+      img.onerror = () => {
+        console.warn('Could not load selected image for analysis.');
+        setIsProcessingImage(false);
+        setScannerError('Could not read the selected image. Try another photo.');
       };
       img.src = base64;
+    };
+    reader.onerror = () => {
+      console.warn('Could not read selected image file.');
+      setIsProcessingImage(false);
+      setScannerError('Could not read the selected image. Try another photo.');
     };
     reader.readAsDataURL(file);
   };
@@ -231,64 +264,105 @@ export function Scanner() {
           ref={fileInputRef}
           onChange={handleCapturePhoto}
         />
-        
-        <button 
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isProcessingImage}
-          className="w-full flex items-center justify-center gap-3 bg-[#1B6B3A] hover:bg-[#14532b] text-white py-4 rounded-2xl font-bold tracking-wider transition-all disabled:opacity-70 shadow-lg shadow-[#1B6B3A]/30 border border-[#1B6B3A]/50 active:scale-[0.98] uppercase text-xs"
-        >
-          {isProcessingImage ? (
-            <>
-              <Loader2 size={20} className="animate-spin text-[#C9A84C]" />
-              <span className="text-white">{imageProcessingStep}</span>
-            </>
-          ) : (
-            <>
-              <Camera size={20} className="text-[#C9A84C]" />
-              <span>{t('scanner.snap_photo') || 'Snap Ingredients Photo'}</span>
-            </>
-          )}
-        </button>
 
-        <div className="flex items-center gap-3 w-full">
-           <div className="h-px bg-white/10 flex-1"></div>
-           <span className="text-[10px] text-white/40 font-bold tracking-widest uppercase">{t('scanner.or_enter_barcode') || 'Barcode or Text'}</span>
-           <div className="h-px bg-white/10 flex-1"></div>
-        </div>
+        {showOcrReview ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+              {reviewImagePreview && (
+                <img
+                  src={reviewImagePreview}
+                  alt="Ingredient label"
+                  className="w-16 h-16 rounded-xl object-cover border border-white/10 bg-black/40"
+                />
+              )}
+              <textarea
+                className="min-h-24 flex-1 resize-none bg-white/10 rounded-xl px-4 py-3 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-xs leading-relaxed backdrop-blur-md"
+                placeholder="Extracted ingredients..."
+                value={reviewOcrText}
+                onChange={(e) => setReviewOcrText(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={clearPhotoReview}
+                className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 text-white py-3 rounded-xl font-bold tracking-wider transition-all uppercase text-[10px]"
+              >
+                <Camera size={16} className="text-[#C9A84C]" />
+                Retake
+              </button>
+              <button
+                type="button"
+                onClick={handleAnalyzeReviewedPhoto}
+                disabled={!reviewImagePreview}
+                className="flex items-center justify-center gap-2 bg-[#C9A84C] hover:bg-[#b09341] text-[#1B6B3A] py-3 rounded-xl font-bold tracking-wider transition-all disabled:opacity-50 uppercase text-[10px]"
+              >
+                <Check size={16} />
+                Analyze
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isProcessingImage}
+              className="w-full flex items-center justify-center gap-3 bg-[#1B6B3A] hover:bg-[#14532b] text-white py-4 rounded-2xl font-bold tracking-wider transition-all disabled:opacity-70 shadow-lg shadow-[#1B6B3A]/30 border border-[#1B6B3A]/50 active:scale-[0.98] uppercase text-xs"
+            >
+              {isProcessingImage ? (
+                <>
+                  <Loader2 size={20} className="animate-spin text-[#C9A84C]" />
+                  <span className="text-white">{imageProcessingStep}</span>
+                </>
+              ) : (
+                <>
+                  <Camera size={20} className="text-[#C9A84C]" />
+                  <span>{t('scanner.snap_photo') || 'Snap Ingredients Photo'}</span>
+                </>
+              )}
+            </button>
 
-        <form onSubmit={handleManualSubmit} className="flex flex-row relative">
-          <input 
-            className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
-            placeholder={t('scanner.placeholder') || "e.g. 3017620..."}
-            type="number"
-            value={manualBarcode}
-            onChange={(e) => setManualBarcode(e.target.value)}
-          />
-          <button 
-            type="submit"
-            className="absolute right-1.5 top-1.5 bottom-1.5 bg-[#C9A84C] hover:bg-[#b09341] px-5 rounded-lg transition-colors flex items-center justify-center text-[#1B6B3A] shadow-md disabled:opacity-40"
-            disabled={!manualBarcode.trim()}
-          >
-            <Search size={20} className="stroke-[3]" />
-          </button>
-        </form>
+            <div className="flex items-center gap-3 w-full">
+               <div className="h-px bg-white/10 flex-1"></div>
+               <span className="text-[10px] text-white/40 font-bold tracking-widest uppercase">{t('scanner.or_enter_barcode') || 'Barcode or Text'}</span>
+               <div className="h-px bg-white/10 flex-1"></div>
+            </div>
 
-        <form onSubmit={handleManualTextSubmit} className="flex flex-row relative mt-1">
-          <input 
-            className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
-            placeholder="Paste ingredients for offline analysis..."
-            type="text"
-            value={manualText}
-            onChange={(e) => setManualText(e.target.value)}
-          />
-          <button 
-            type="submit"
-            className="absolute right-1.5 top-1.5 bottom-1.5 bg-[#C9A84C] hover:bg-[#b09341] px-5 rounded-lg transition-colors flex items-center justify-center text-[#1B6B3A] shadow-md disabled:opacity-40"
-            disabled={!manualText.trim()}
-          >
-            <Search size={20} className="stroke-[3]" />
-          </button>
-        </form>
+            <form onSubmit={handleManualSubmit} className="flex flex-row relative">
+              <input
+                className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
+                placeholder={t('scanner.placeholder') || "e.g. 3017620..."}
+                type="number"
+                value={manualBarcode}
+                onChange={(e) => setManualBarcode(e.target.value)}
+              />
+              <button
+                type="submit"
+                className="absolute right-1.5 top-1.5 bottom-1.5 bg-[#C9A84C] hover:bg-[#b09341] px-5 rounded-lg transition-colors flex items-center justify-center text-[#1B6B3A] shadow-md disabled:opacity-40"
+                disabled={!manualBarcode.trim()}
+              >
+                <Search size={20} className="stroke-[3]" />
+              </button>
+            </form>
+
+            <form onSubmit={handleManualTextSubmit} className="flex flex-row relative mt-1">
+              <input
+                className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
+                placeholder="Paste ingredients for offline analysis..."
+                type="text"
+                value={manualText}
+                onChange={(e) => setManualText(e.target.value)}
+              />
+              <button
+                type="submit"
+                className="absolute right-1.5 top-1.5 bottom-1.5 bg-[#C9A84C] hover:bg-[#b09341] px-5 rounded-lg transition-colors flex items-center justify-center text-[#1B6B3A] shadow-md disabled:opacity-40"
+                disabled={!manualText.trim()}
+              >
+                <Search size={20} className="stroke-[3]" />
+              </button>
+            </form>
+          </>
+        )}
 
         <button 
           className="w-full py-2 mt-1 text-[10px] font-bold tracking-widest uppercase text-white/40 hover:text-white transition-colors"

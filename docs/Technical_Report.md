@@ -7,17 +7,17 @@ HalalScan is an end-to-end web application using a hybrid neuro-symbolic AI arch
 ### Architecture Components
 
 1. **Frontend Interface (React/Vite)**
-   Handles manual ingredient input, barcode scans, image uploads, scan history, evaluation dashboards, and architecture trace display.
+   Handles manual ingredient input, barcode scans, image uploads, OCR text review, scan history, evaluation dashboards, and architecture trace display.
 
 2. **ML Layer**
    - **Gemini 2.5 Flash:** Used through Vercel serverless API routes for OCR, semantic parsing, and natural-language recommendations.
-   - **Local fallback ML model:** `src/utils/mlModel.ts` implements a TF-IDF weighted Multinomial Naive Bayes classifier trained on 48 labeled ingredient samples. It uses unigram, bigram, and trigram features, producing a 434-feature vocabulary.
+   - **Local fallback ML model:** `src/utils/mlModel.ts` implements a TF-IDF weighted Multinomial Naive Bayes classifier trained on 58 labeled ingredient samples. It uses unigram, bigram, and trigram features, producing a 508-feature vocabulary.
 
 3. **Knowledge Base (`halalRules.ts` and `reasoningEngine.ts`)**
-   Defines 15 halal-domain rules, E-number categories, and 65 keyword triggers covering pork derivatives, alcohol, insects/colorants, enzymes, emulsifiers, flavorings, and doubtful animal-derived ingredients.
+   Defines 15 halal-domain rules, E-number categories, and 104 keyword triggers covering pork derivatives, alcohol, insects/colorants, enzymes, emulsifiers, flavorings, and doubtful animal-derived ingredients.
 
 4. **Reasoning Engine (`reasoningEngine.ts`)**
-   Extracts facts from ingredients, applies symbolic rules, normalizes E-number variants such as `E-120`, avoids substring false positives such as `E1200`, and resolves conflicts using `HARAM > MASHBOOH > HALAL`.
+   Extracts facts from ingredients, applies symbolic rules, treats missing or placeholder ingredients as `MASHBOOH`, normalizes E-number variants such as `E-120`, avoids substring false positives such as `E1200`, and resolves conflicts using `HARAM > MASHBOOH > HALAL`.
 
 5. **System Integration (`systemIntegration.ts`)**
    Combines ML predictions with KR&R results. Explicit KR&R violations override probabilistic ML output, which is essential for religious compliance where known forbidden ingredients cannot be treated as probabilistic suggestions.
@@ -68,6 +68,7 @@ The integrated pipeline runs KR&R and ML, then applies consensus logic:
 - If KR&R finds HARAM, final verdict becomes HARAM even if ML says HALAL.
 - If KR&R finds MASHBOOH and ML says HALAL, final verdict becomes MASHBOOH.
 - If both systems agree, the result is returned with architecture logs.
+- If Gemini is not configured or unavailable, the system falls back to local KR&R plus the local Naive Bayes model instead of blocking the scan.
 
 ## 3. Results and Evaluation
 
@@ -77,7 +78,7 @@ Evaluation file: `src/utils/modelEvaluation.ts`
 
 | Metric | Score |
 |--------|-------|
-| Accuracy | 100.0% (30/30) |
+| Accuracy | 100.0% (36/36) |
 | Macro Avg F1 | 1.00 |
 | Weighted Avg F1 | 1.00 |
 
@@ -101,12 +102,14 @@ Evaluation file: `src/utils/evaluateModel.ts`
 
 ### 3.3 Key Fixes From Evaluation
 
-The previous KR&R evaluation missed `prosciutto`, classifying it as HALAL. The knowledge base now includes additional pork-derived terms such as prosciutto, pancetta, guanciale, mortadella, coppa, speck, jamon, serrano ham, and chicharron.
+The previous KR&R evaluation missed `prosciutto`, classifying it as HALAL. The knowledge base now includes additional pork-derived terms such as prosciutto, pancetta, guanciale, mortadella, coppa, speck, jamon, serrano ham, chicharron, pig, swine, porcine, boar, pork stock, pork broth, and pork flavor.
 
 The E-number matcher was also improved from substring matching to exact normalized matching. This means:
 
 - `E-120` correctly matches the HARAM additive `E120`.
 - `E1200` no longer accidentally matches `E120`.
+- Missing ingredient placeholders such as `No ingredients listed` now return `MASHBOOH` instead of `HALAL`.
+- Ambiguous animal-source terms such as `beef gelatin`, `bovine gelatin`, and `animal shortening` now return `MASHBOOH` unless explicitly pork/porcine/swine.
 
 ## 4. Limitations and Future Work
 
@@ -115,6 +118,8 @@ The E-number matcher was also improved from substring matching to exact normaliz
 - Certification logic exists as a knowledge-base rule, but actual halal-logo image recognition is not yet implemented.
 - The rule engine is English-focused. Multilingual keyword dictionaries should be added for Malay, Arabic, Indonesian, and common imported-food terms.
 - The knowledge base needs ongoing expert maintenance for new additives, new synonyms, and regional ingredient names.
+- The photo scanner now includes user-editable OCR text review before final analysis.
+- Nearby halal retailer data is currently static demo data and should be replaced with a real verified places or certification source.
 
 ## 5. Reproducibility
 

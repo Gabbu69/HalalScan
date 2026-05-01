@@ -4,8 +4,21 @@ import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
 import express from 'express';
 
+const SERVER_ENV_KEYS = [
+  'GEMINI_API_KEY',
+  'GOOGLE_API_KEY',
+  'GOOGLE_GENERATIVE_AI_API_KEY',
+  'GEMINI_MODEL'
+];
+
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  SERVER_ENV_KEYS.forEach(key => {
+    if (!process.env[key] && env[key]) {
+      process.env[key] = env[key];
+    }
+  });
+
   return {
     plugins: [
       react(), 
@@ -15,6 +28,16 @@ export default defineConfig(({mode}) => {
         configureServer(server) {
           const app = express();
           app.use(express.json({ limit: '50mb' }));
+
+          app.get('/api/health', async (req, res) => {
+            try {
+              const handler = await server.ssrLoadModule('./api/health.ts');
+              await handler.default(req, res);
+            } catch (err) {
+              console.error(err);
+              res.status(500).json({ code: 'LOCAL_API_ERROR', error: 'Internal Server Error' });
+            }
+          });
           
           app.post('/api/analyze', async (req, res) => {
             try {
@@ -22,7 +45,7 @@ export default defineConfig(({mode}) => {
               await handler.default(req, res);
             } catch (err) {
               console.error(err);
-              res.status(500).json({ error: 'Internal Server Error' });
+              res.status(500).json({ code: 'LOCAL_API_ERROR', error: 'Internal Server Error' });
             }
           });
 
@@ -32,7 +55,7 @@ export default defineConfig(({mode}) => {
               await handler.default(req, res);
             } catch (err) {
               console.error(err);
-              res.status(500).json({ error: 'Internal Server Error' });
+              res.status(500).json({ code: 'LOCAL_API_ERROR', error: 'Internal Server Error' });
             }
           });
 
@@ -40,9 +63,6 @@ export default defineConfig(({mode}) => {
         }
       }
     ],
-    define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

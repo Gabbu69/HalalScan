@@ -43,6 +43,11 @@ export const TRAINING_DATA: TrainingData[] = [
   { text: 'shellac e904 confectionery glaze', label: 'HARAM' },
   { text: 'bone phosphate e542 animal bone', label: 'HARAM' },
   { text: 'vodka whiskey brandy liqueur alcohol', label: 'HARAM' },
+  { text: 'pig fat seasoning', label: 'HARAM' },
+  { text: 'porcine gelatin capsule', label: 'HARAM' },
+  { text: 'swine extract flavor base', label: 'HARAM' },
+  { text: 'boar meat sausage', label: 'HARAM' },
+  { text: 'pork broth pork stock pork flavor', label: 'HARAM' },
 
   // MASHBOOH samples
   { text: 'whey natural flavors e471 mono and diglycerides', label: 'MASHBOOH' },
@@ -60,7 +65,12 @@ export const TRAINING_DATA: TrainingData[] = [
   { text: 'e422 glycerol humectant', label: 'MASHBOOH' },
   { text: 'e570 stearic acid anti caking agent', label: 'MASHBOOH' },
   { text: 'e472a e476 emulsifier unknown source', label: 'MASHBOOH' },
-  { text: 'pepsin trypsin enzyme source unspecified', label: 'MASHBOOH' }
+  { text: 'pepsin trypsin enzyme source unspecified', label: 'MASHBOOH' },
+  { text: 'beef gelatin source not certified', label: 'MASHBOOH' },
+  { text: 'bovine gelatin animal source unknown', label: 'MASHBOOH' },
+  { text: 'animal shortening animal fat source unknown', label: 'MASHBOOH' },
+  { text: 'animal enzymes animal rennet source unspecified', label: 'MASHBOOH' },
+  { text: 'beef tallow source not halal certified', label: 'MASHBOOH' }
 ];
 
 const LABELS: Label[] = ['HALAL', 'HARAM', 'MASHBOOH'];

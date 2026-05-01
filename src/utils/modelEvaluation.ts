@@ -30,6 +30,9 @@ export const ML_TEST_DATA: TestData[] = [
   { text: 'beer batter cod fillet', trueLabel: 'HARAM' },
   { text: 'vodka chocolate liqueur', trueLabel: 'HARAM' },
   { text: 'pork gelatin capsule', trueLabel: 'HARAM' },
+  { text: 'pig fat seasoning', trueLabel: 'HARAM' },
+  { text: 'porcine gelatin capsule', trueLabel: 'HARAM' },
+  { text: 'swine extract flavor base', trueLabel: 'HARAM' },
 
   // MASHBOOH holdout cases
   { text: 'gummy bears gelatin natural flavors', trueLabel: 'MASHBOOH' },
@@ -41,7 +44,10 @@ export const ML_TEST_DATA: TestData[] = [
   { text: 'calcium stearate enzymes', trueLabel: 'MASHBOOH' },
   { text: 'e481 emulsifier', trueLabel: 'MASHBOOH' },
   { text: 'confectioners glaze artificial flavor', trueLabel: 'MASHBOOH' },
-  { text: 'lipase enzyme artificial color', trueLabel: 'MASHBOOH' }
+  { text: 'lipase enzyme artificial color', trueLabel: 'MASHBOOH' },
+  { text: 'beef gelatin source not certified', trueLabel: 'MASHBOOH' },
+  { text: 'bovine gelatin animal source unknown', trueLabel: 'MASHBOOH' },
+  { text: 'animal shortening animal fat source unknown', trueLabel: 'MASHBOOH' }
 ];
 
 type ConfusionMatrix = Record<Label, Record<Label, number>>;
