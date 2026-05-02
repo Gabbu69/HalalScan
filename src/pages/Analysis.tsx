@@ -254,9 +254,10 @@ export function Analysis() {
                       <Database size={12} /> Knowledge Base & KR&R Engine
                     </h4>
                     <div className="bg-gray-50 dark:bg-[#0f1a13] rounded p-2 border border-gray-100 dark:border-gray-800 font-mono text-[8px] text-gray-600 dark:text-gray-400 overflow-x-auto">
-                      <div className="font-bold mb-1 text-gray-800 dark:text-gray-300">Rule-based Status -&gt; {result.architectureDetails.krrAnalysis.status}</div>
+                      <div className="font-bold mb-1 text-gray-800 dark:text-gray-300">Rule-based Status → {result.architectureDetails.krrAnalysis.status} ({result.architectureDetails.krrAnalysis.confidence ?? 'N/A'}% confidence)</div>
+                      <div className="mb-1 text-[7px] text-gray-500 dark:text-gray-500">Rules Evaluated: {result.architectureDetails.krrAnalysis.rulesEvaluated ?? 'N/A'} | Triggered: {result.architectureDetails.krrAnalysis.rulesTriggered ?? 0}</div>
                       {result.architectureDetails.krrAnalysis.logicPath.map((log: string, idx: number) => (
-                        <div key={idx}>[{idx+1}] {log}</div>
+                        <div key={idx} className={log.includes('MATCH') ? 'text-red-600 dark:text-red-400 font-semibold' : log.includes('CHAIN') ? 'text-amber-600 dark:text-amber-400 font-semibold' : ''}>[{idx+1}] {log}</div>
                       ))}
                     </div>
                   </div>
@@ -266,9 +267,10 @@ export function Analysis() {
                       <Network size={12} /> ML Model Inferencing (Gemini)
                     </h4>
                      <div className="bg-gray-50 dark:bg-[#0f1a13] rounded p-2 border border-gray-100 dark:border-gray-800 font-mono text-[8px] text-gray-600 dark:text-gray-400">
-                      <div>Model: gemini-2.5-flash</div>
-                      <div>MimeType: application/json</div>
+                      <div>Model: gemini-2.5-flash (Large Language/Vision Model)</div>
+                      <div>Response Format: application/json (structured output)</div>
                       <div>Verdict Generated: {result.architectureDetails.mlAnalysis?.verdict || 'N/A'}</div>
+                      <div>ML Confidence: {result.architectureDetails.mlAnalysis?.confidence || 'N/A'}%</div>
                      </div>
                   </div>
 

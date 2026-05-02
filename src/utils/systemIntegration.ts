@@ -22,19 +22,47 @@ const buildConsensus = (mlResult: any, krrResult: InferenceResult, integrationLo
   let finalConfidence = mlResult.confidence;
   let finalFlags = Array.from(new Set([...(mlResult.flagged_ingredients || []), ...krrResult.flags.map(f => f.ingredient)]));
 
+  // ── Consensus Logic with KR&R Override Authority ──
+
   if (krrResult.status === 'HARAM' && mlResult.verdict !== 'HARAM') {
-    integrationLogs.push('CRITICAL: KR&R explicitly detected HARAM violation overriding ML assessment.');
+    // CRITICAL VETO: KR&R has absolute override authority for HARAM
+    integrationLogs.push(`CRITICAL VETO: KR&R Engine detected ${krrResult.flags.filter(f => f.type === 'HARAM').length} HARAM violation(s).`);
+    integrationLogs.push(`ML Engine returned "${mlResult.verdict}" — OVERRIDDEN by KR&R deterministic logic.`);
+    
+    const haramFlags = krrResult.flags.filter(f => f.type === 'HARAM');
+    const flagDetails = haramFlags.map(f => `${f.ingredient} (${f.description}, ${f.citation})`).join('; ');
+    
     finalVerdict = 'HARAM';
-    finalReason = `Rule-based violation found (${krrResult.flags.map(f=>f.ingredient).join(', ')}). ` + finalReason;
-    finalConfidence = 100;
+    finalReason = `KR&R Rule-based violation: ${flagDetails}. ${finalReason}`;
+    finalConfidence = Math.max(krrResult.confidence, 95);
+    
+    integrationLogs.push(`Verdict forced to HARAM with confidence ${finalConfidence}%. Rules: ${haramFlags.map(f => f.ruleId).join(', ')}.`);
   } else if (krrResult.status === 'MASHBOOH' && mlResult.verdict === 'HALAL') {
-    integrationLogs.push('NOTICE: KR&R detected MASHBOOH warning. Overriding ML HALAL assessment.');
+    // ESCALATION: KR&R detected doubtful ingredients ML missed
+    integrationLogs.push(`ESCALATION: KR&R detected ${krrResult.flags.filter(f => f.type === 'MASHBOOH').length} MASHBOOH indicator(s).`);
+    integrationLogs.push(`ML Engine returned "HALAL" — overridden to MASHBOOH by KR&R precautionary principle.`);
+    
+    const mashFlags = krrResult.flags.filter(f => f.type === 'MASHBOOH');
+    const flagDetails = mashFlags.map(f => `${f.ingredient} (${f.description})`).join('; ');
+    
     finalVerdict = 'MASHBOOH';
-    finalReason = `Rule-based doubtful ingredient found (${krrResult.flags.map(f=>f.ingredient).join(', ')}). ` + finalReason;
-    finalConfidence = Math.max(50, (finalConfidence || 100) - 20);
+    finalReason = `Doubtful ingredients detected: ${flagDetails}. ${finalReason}`;
+    finalConfidence = Math.max(40, Math.min(krrResult.confidence, (finalConfidence || 100) - 15));
+    
+    integrationLogs.push(`Verdict set to MASHBOOH with adjusted confidence ${finalConfidence}%.`);
+  } else if (krrResult.status === mlResult.verdict) {
+    // CONSENSUS: Both engines agree
+    integrationLogs.push(`CONSENSUS REACHED: ML (${mlResult.verdict}) and KR&R (${krrResult.status}) are in agreement.`);
+    integrationLogs.push(`Combined confidence: ML=${mlResult.confidence || 'N/A'}%, KR&R=${krrResult.confidence}%.`);
+    
+    // Use the higher confidence when both agree
+    finalConfidence = Math.max(finalConfidence || 0, krrResult.confidence);
   } else {
-    integrationLogs.push('System reached consensus smoothly. ML assessment aligns with KR&R evaluation.');
+    // PARTIAL AGREEMENT: Different verdicts but no critical override needed
+    integrationLogs.push(`PARTIAL: ML=${mlResult.verdict}, KR&R=${krrResult.status}. Using ML verdict (no critical KR&R override triggered).`);
   }
+
+  integrationLogs.push(`FINAL: Verdict=${finalVerdict}, Confidence=${finalConfidence}%, Flagged=${finalFlags.length} ingredient(s).`);
 
   return {
     finalVerdict,
@@ -57,7 +85,7 @@ export const runIntegratedAnalysis = async (productName: string, ingredients: st
   integrationLogs.push('Initializing System Integration (ML + KR&R).');
 
   const krrResult = runRuleBasedInference(ingredients);
-  integrationLogs.push(`KR&R Engine completed. Preliminary status: ${krrResult.status}.`);
+  integrationLogs.push(`KR&R Engine completed. Status: ${krrResult.status}. ${krrResult.rulesTriggered}/${krrResult.rulesEvaluated} rules triggered.`);
 
   integrationLogs.push('Dispatching payload to Machine Learning Inferencing endpoint...');
   const mlResult = await analyzeIngredientsWithGemini(productName, ingredients, madhab);
@@ -77,7 +105,7 @@ export const runIntegratedImageAnalysis = async (imageBase64: string, madhab: st
   // Step 2: Feed extracted text into KR&R Rules
   integrationLogs.push('Routing extracted text to KR&R Reasoning Engine...');
   const krrResult = runRuleBasedInference(mlResult.ingredients || '');
-  integrationLogs.push(`KR&R Engine completed. Rule status: ${krrResult.status}`);
+  integrationLogs.push(`KR&R Engine completed. Rule status: ${krrResult.status}. ${krrResult.rulesTriggered}/${krrResult.rulesEvaluated} rules triggered.`);
 
   return buildConsensus(mlResult, krrResult, integrationLogs);
 };

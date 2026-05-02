@@ -34,9 +34,10 @@ export function Knowledge() {
       <div className="flex-1 overflow-y-auto px-5 pb-20 w-full space-y-3">
         {filteredRules.map(item => {
           let borderClass = 'border-gray-300 dark:border-gray-600';
-          if (item.category === 'Ingredients' && item.title.includes('HARAM')) borderClass = 'border-[#D32F2F]';
-          if (item.category === 'Ingredients' && item.title.includes('MASHBOOH')) borderClass = 'border-amber-500';
-          if (item.category === 'Ingredients' && item.title.includes('ALWAYS HALAL')) borderClass = 'border-green-500';
+          if (item.title.includes('HARAM') || item.category === 'Alcohol') borderClass = 'border-[#D32F2F]';
+          if (item.title.includes('MASHBOOH')) borderClass = 'border-amber-500';
+          if (item.title.includes('ALWAYS HALAL')) borderClass = 'border-green-500';
+          if (item.category === 'Food Additives') borderClass = 'border-indigo-500';
 
           return (
             <div key={item.id} className={`bg-white dark:bg-[#1a2e22] rounded-xl overflow-hidden shadow-sm transition-all duration-200 border border-gray-100 dark:border-gray-800 border-l-4 rtl:border-l-0 rtl:border-r-4 ${borderClass}`}>
