@@ -48,10 +48,7 @@ export const translations: Translations = {
     'profile.general': 'General (Non-Muslim / Clean Eating)',
     'profile.language': 'Language',
     'profile.language_desc': 'Choose your preferred language for AI responses and interface.',
-    'profile.api_key': 'Gemini API Key',
-    'profile.api_key_desc': 'Enter your own key to override the environment default.',
-    'profile.save_key': 'Save Key',
-    'profile.saved': 'Saved',
+
     'profile.about': 'About HalalScan',
     'profile.about_desc': 'Designed to assist consumers in identifying hidden animal by-products, alcohol, and ambiguous ingredients using artificial intelligence. Whether you follow Halal guidelines, eat vegan, or simply prioritize clean eating, HalalScan provides transparent insights.',
     'profile.reset': 'Reset Application',
@@ -59,7 +56,7 @@ export const translations: Translations = {
 
     // Scanner
     'scanner.title': 'Product Scanner',
-    'scanner.processing': 'Analyzing with Gemini...',
+    'scanner.processing': 'Analyzing with Flask backend...',
     'scanner.align': 'Align ingredients within frame',
     'scanner.capture': 'Capture Image',
 
@@ -110,6 +107,16 @@ export const translations: Translations = {
     'knowledge.rule_4_content': 'The animal must be slaughtered by a sane adult Muslim. The name of Allah (Bismillah) must be invoked. The throat, windpipe, and blood vessels must be severed with a sharp knife in a single swipe to drain blood completely.',
     'knowledge.rule_5_title': 'Processing Facilities',
     'knowledge.rule_5_content': 'Halal products must not be prepared, processed, or stored using equipment that has been contaminated with non-Halal items unless strictly cleaned according to Islamic laws (Ritual cleansing / Samak).',
+    'knowledge.rule_6_title': 'Alcohol in Beverages & Flavoring',
+    'knowledge.rule_6_content': 'Any beverage containing more than 0.5% ethanol is considered Haram. This includes wine, beer, spirits, and cooking wines. Vanilla extract and similar flavorings that use alcohol as a solvent are Mashbooh unless the alcohol fully evaporates during cooking (disputed among scholars).',
+    'knowledge.rule_7_title': 'Critical E-Numbers Reference',
+    'knowledge.rule_7_content': 'E120 (Carmine/Cochineal) — HARAM (insect-derived). E441 (Gelatin) — HARAM unless from fish/plant. E471–E477 (Emulsifiers) — MASHBOOH (animal or plant source). E481–E483 (Stearoyl lactylates) — MASHBOOH. E542 (Bone phosphate) — HARAM (often pork). E570 (Stearic acid) — MASHBOOH. E904 (Shellac) — HARAM (insect secretion). E920 (L-Cysteine) — HARAM (commonly from pig bristles).',
+    'knowledge.rule_8_title': 'Halal Certification Bodies',
+    'knowledge.rule_8_content': 'Recognized Halal certification bodies include JAKIM (Malaysia), MUI (Indonesia), ESMA (UAE), SMIIC (OIC standard), and IFANCA (USA/Canada). A product bearing a certification logo from an accredited body can generally be considered Halal without further ingredient analysis.',
+    'knowledge.rule_9_title': 'Non-Food Products',
+    'knowledge.rule_9_content': 'Halal principles extend to cosmetics, skincare, and pharmaceuticals. Products containing alcohol (denat.), pork-derived glycerin, collagen from non-Halal animals, carmine-based colorants, or animal-tested ingredients (using non-Halal animals) are considered Haram or Mashbooh. Medicine is generally exempt under the principle of Darurah (necessity) if no Halal alternative exists.',
+    'knowledge.rule_10_title': 'Enzymes & Microbial Alternatives',
+    'knowledge.rule_10_content': 'Enzymes such as rennet, pepsin, lipase, and trypsin can be sourced from animals (often pork or non-zabiha cattle), plants, or microbial fermentation. Microbial-sourced enzymes are always Halal. Products labeling only "enzymes" without specifying the source are considered Mashbooh.',
     'knowledge.spotlight': 'Guideline Spotlight',
     'knowledge.spotlight_general': 'Checking ingredients allows us to align our consumption with our ethical, dietary, or allergy boundaries.',
     'knowledge.spotlight_muslim': '"Everything is Halal until proven otherwise, except in the case of meat, where it is Haram until proven Halal."',
@@ -121,7 +128,7 @@ export const translations: Translations = {
     'onboarding.s1_title': 'Welcome to HalalScan',
     'onboarding.s1_desc': 'Your AI-powered assistant for making informed dietary choices.',
     'onboarding.s2_title': 'Scan with AI',
-    'onboarding.s2_desc': 'Instantly analyze ingredients using Gemini Vision AI.',
+    'onboarding.s2_desc': 'Extract labels with Google Vision and verify ingredients with rule-backed AI.',
     'onboarding.s3_title': 'Ask the Assistant',
     'onboarding.s3_desc': 'Get quick answers about complex food ingredients.',
   },
@@ -171,10 +178,7 @@ export const translations: Translations = {
     'profile.general': 'General (Hindi Muslim / Malinis na Pagkain)',
     'profile.language': 'Wika',
     'profile.language_desc': 'Piliin ang iyong gustong wika para sa AI at app interface.',
-    'profile.api_key': 'Gemini API Key',
-    'profile.api_key_desc': 'Ipasok ang iyong sariling key para palitan ang default.',
-    'profile.save_key': 'I-save ang Key',
-    'profile.saved': 'Nai-save',
+
     'profile.about': 'Tungkol sa HalalScan',
     'profile.about_desc': 'Idinisenyo upang tulungan ang mga mamimili na matukoy ang mga nakatagong by-product ng hayop, alkohol, at mga kaduda-dudang sangkap gamit ang AI.',
     'profile.reset': 'I-reset ang Application',
@@ -182,7 +186,7 @@ export const translations: Translations = {
 
     // Scanner
     'scanner.title': 'Product Scanner',
-    'scanner.processing': 'Sinusuri ng Gemini...',
+    'scanner.processing': 'Sinusuri ng backend...',
     'scanner.align': 'Ihanay ang mga sangkap sa loob ng frame',
     'scanner.capture': 'Kuhanan ng Larawan',
 
@@ -244,7 +248,7 @@ export const translations: Translations = {
     'onboarding.s1_title': 'Maligayang pagdating sa HalalScan',
     'onboarding.s1_desc': 'Ang iyong AI assistant para sa matalinong pagpili ng pagkain.',
     'onboarding.s2_title': 'I-scan gamit ang AI',
-    'onboarding.s2_desc': 'Mabilis na suriin ang mga sangkap gamit ang Gemini Vision AI.',
+    'onboarding.s2_desc': 'Mabilis na suriin ang mga sangkap gamit ang OCR at rule-backed AI.',
     'onboarding.s3_title': 'Magtanong sa Assistant',
     'onboarding.s3_desc': 'Kumuha ng mabilis na sagot tungkol sa mga sangkap.',
   },
@@ -294,10 +298,7 @@ export const translations: Translations = {
     'profile.general': 'عام (غير مسلم / أكل نظيف)',
     'profile.language': 'اللغة',
     'profile.language_desc': 'اختر لغتك المفضلة للمساعد والواجهة.',
-    'profile.api_key': 'مفتاح Gemini API',
-    'profile.api_key_desc': 'أدخل مفتاحك الخاص لتجاوز الافتراضي.',
-    'profile.save_key': 'حفظ المفتاح',
-    'profile.saved': 'تم الحفظ',
+
     'profile.about': 'عن HalalScan',
     'profile.about_desc': 'مصمم لمساعدة المستهلكين في تحديد المنتجات الحيوانية المخفية والكحول والمكونات الغامضة باستخدام الذكاء الاصطناعي.',
     'profile.reset': 'إعادة ضبط التطبيق',
@@ -367,7 +368,7 @@ export const translations: Translations = {
     'onboarding.s1_title': 'مرحباً في HalalScan',
     'onboarding.s1_desc': 'مساعدك الذكي لاتخاذ قرارات غذائية مستنيرة.',
     'onboarding.s2_title': 'امسح بالذكاء الاصطناعي',
-    'onboarding.s2_desc': 'قم بتحليل المكونات فوراً باستخدام Gemini Vision.',
+    'onboarding.s2_desc': 'قم بتحليل المكونات باستخدام OCR وقواعد التحقق.',
     'onboarding.s3_title': 'اسأل المساعد',
     'onboarding.s3_desc': 'احصل على إجابات سريعة حول المكونات المعقدة.',
   }

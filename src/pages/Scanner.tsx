@@ -1,20 +1,40 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
+<<<<<<< HEAD
 import { Search, Camera, Loader2, RefreshCw, X, ImagePlus, RotateCcw, Check } from 'lucide-react';
+=======
+import { Search, Camera, Loader2, RefreshCw, X, Check } from 'lucide-react';
+>>>>>>> e3afe0f9ccf5d047b4e9d43239da8e0792adb203
 import { useAppStore } from '../store/useAppStore';
 import { useTranslation } from '../hooks/useTranslation';
 
 export function Scanner() {
   const [manualBarcode, setManualBarcode] = useState('');
+  const [manualText, setManualText] = useState('');
+  const [certifyingBody, setCertifyingBody] = useState('');
   const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [imageProcessingStep, setImageProcessingStep] = useState('Processing Photo...');
+  const [showOcrReview, setShowOcrReview] = useState(false);
+  const [reviewOcrText, setReviewOcrText] = useState('');
+  const [reviewImagePreview, setReviewImagePreview] = useState<string | null>(null);
   const [isScannerReady, setIsScannerReady] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const navigate = useNavigate();
   const { t } = useTranslation();
+<<<<<<< HEAD
   const { setPendingAnalysisImage } = useAppStore();
   const galleryInputRef = useRef<HTMLInputElement>(null);
+=======
+  const {
+    setPendingAnalysisImage,
+    setPendingAnalysisImageOcrText,
+    setPendingAnalysisText,
+    setPendingCertifyingBody
+  } = useAppStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+>>>>>>> e3afe0f9ccf5d047b4e9d43239da8e0792adb203
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -32,21 +52,31 @@ export function Scanner() {
           aspectRatio: 1.0
         };
 
-        // Prefer back camera
-        await html5QrCode.start(
-          { facingMode: "environment" }, 
-          config, 
-          (decodedText) => {
-            html5QrCode.stop().then(() => {
-              navigate(`/analysis?barcode=${decodedText}`);
-            }).catch(() => {
-              navigate(`/analysis?barcode=${decodedText}`);
-            });
-          },
-          (errorMessage) => {
-            // parse error, ignore
+        const successCallback = (decodedText: string) => {
+          html5QrCode.stop().then(() => {
+            navigate(`/analysis?barcode=${decodedText}`);
+          }).catch(() => {
+            navigate(`/analysis?barcode=${decodedText}`);
+          });
+        };
+
+        const errorCallback = (errorMessage: string) => {
+          // parse error, ignore
+        };
+
+        try {
+          // Try preferred back camera first
+          await html5QrCode.start({ facingMode: "environment" }, config, successCallback, errorCallback);
+        } catch (envErr) {
+          console.log("Environment camera failed, falling back to any available camera:", envErr);
+          // If environment fails (e.g. on laptops), get all cameras and use the first one
+          const devices = await Html5Qrcode.getCameras();
+          if (devices && devices.length > 0) {
+            await html5QrCode.start(devices[0].id, config, successCallback, errorCallback);
+          } else {
+            throw new Error("No cameras found on device");
           }
-        );
+        }
         
         setIsScannerReady(true);
         setScannerError(null);
@@ -130,9 +160,153 @@ export function Scanner() {
       alert("Enter a valid barcode");
       return;
     }
+    setPendingCertifyingBody(certifyingBody.trim());
     navigate(`/analysis?barcode=${manualBarcode.trim()}`);
   };
 
+<<<<<<< HEAD
+=======
+  const handleManualTextSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (manualText.trim().length < 2) {
+      alert("Enter valid ingredients list");
+      return;
+    }
+    setPendingAnalysisText(manualText.trim());
+    setPendingCertifyingBody(certifyingBody.trim());
+    navigate('/analysis?type=text');
+  };
+
+  const clearPhotoReview = () => {
+    setShowOcrReview(false);
+    setReviewOcrText('');
+    setReviewImagePreview(null);
+    setPendingAnalysisImage(null);
+    setPendingAnalysisImageOcrText(null);
+    setIsProcessingImage(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleAnalyzeReviewedPhoto = () => {
+    setPendingAnalysisImageOcrText(reviewOcrText.trim() || null);
+    setPendingCertifyingBody(certifyingBody.trim());
+    navigate('/analysis?type=image');
+  };
+
+  const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => resolve(event.target?.result as string);
+    reader.onerror = () => reject(new Error('Could not read selected file.'));
+    reader.readAsDataURL(file);
+  });
+
+  const compressImage = (base64: string) => new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_DIMENSION = 1600;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_DIMENSION) {
+          height *= MAX_DIMENSION / width;
+          width = MAX_DIMENSION;
+        }
+      } else if (height > MAX_DIMENSION) {
+        width *= MAX_DIMENSION / height;
+        height = MAX_DIMENSION;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(base64);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => reject(new Error('Could not load selected image.'));
+    img.src = base64;
+  });
+
+  const runBackendOcr = async (dataUrl: string, mimeType: string, filename: string, fallbackText = '') => {
+    const response = await fetch('/api/ocr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileBase64: dataUrl,
+        mimeType,
+        filename,
+        fallbackText
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Backend OCR failed.');
+    }
+
+    const data = await response.json();
+    return typeof data.text === 'string' ? data.text.trim() : '';
+  };
+
+  const handleCapturePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setShowOcrReview(false);
+    setReviewOcrText('');
+    setReviewImagePreview(null);
+    setIsProcessingImage(true);
+    setImageProcessingStep('Preparing Photo...');
+
+    try {
+      const rawDataUrl = await readFileAsDataUrl(file);
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const uploadDataUrl = isPdf ? rawDataUrl : await compressImage(rawDataUrl);
+      const mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
+      const fileNameText = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
+
+      setPendingAnalysisImage(uploadDataUrl);
+      setReviewImagePreview(isPdf ? null : uploadDataUrl);
+      setPendingAnalysisImageOcrText(null);
+      setImageProcessingStep('Reading Label Text with Google Vision...');
+
+      let extractedReviewText = '';
+      try {
+        extractedReviewText = await runBackendOcr(uploadDataUrl, mimeType, file.name);
+      } catch (ocrError) {
+        console.warn('Backend Google Vision OCR failed, attempting local OCR fallback for images:', ocrError);
+      }
+
+      if (!extractedReviewText && !isPdf) {
+        try {
+          setImageProcessingStep('Using Local OCR Fallback...');
+          const { extractTextFromImage } = await import('../utils/localOcr');
+          extractedReviewText = await extractTextFromImage(uploadDataUrl);
+        } catch (ocrError) {
+          console.warn('Local OCR fallback failed:', ocrError);
+        }
+      }
+
+      extractedReviewText = [extractedReviewText, fileNameText].filter(Boolean).join(' ').trim();
+      setReviewOcrText(extractedReviewText);
+      setPendingAnalysisImageOcrText(extractedReviewText || null);
+      setShowOcrReview(true);
+      setIsProcessingImage(false);
+    } catch (error) {
+      console.warn('Could not process selected file.', error);
+      setScannerError('Could not read the selected image. Try another photo.');
+      setIsProcessingImage(false);
+    }
+  };
+
+>>>>>>> e3afe0f9ccf5d047b4e9d43239da8e0792adb203
   const retryScanner = () => {
     window.location.reload();
   };
@@ -197,6 +371,7 @@ export function Scanner() {
 
   // ── Main Scanner Screen ──
   return (
+<<<<<<< HEAD
     <div className="flex flex-col h-screen bg-black text-white relative overflow-hidden">
       {/* Hidden canvas for frame capture */}
       <canvas ref={canvasRef} className="hidden" />
@@ -209,6 +384,9 @@ export function Scanner() {
         ref={galleryInputRef}
         onChange={handleGalleryUpload}
       />
+=======
+    <div className="flex flex-col h-screen max-w-md mx-auto w-full bg-black text-white relative overflow-hidden sm:shadow-2xl sm:border-x sm:border-white/10">
+>>>>>>> e3afe0f9ccf5d047b4e9d43239da8e0792adb203
       
       {/* Scanner Wrapper */}
       <div className="flex-1 relative w-full h-full bg-black">
@@ -260,6 +438,7 @@ export function Scanner() {
       </div>
       
       {/* Bottom Controls */}
+<<<<<<< HEAD
       <div className="absolute bottom-0 left-0 w-full p-6 pt-8 bg-[#1a1a1a]/95 backdrop-blur-md rounded-t-[32px] border-t border-white/10 shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-20 flex flex-col gap-4">
         
         {/* Primary: Snap from live camera */}
@@ -280,29 +459,138 @@ export function Scanner() {
           <ImagePlus size={18} className="text-[#C9A84C]" />
           <span>{t('scanner.upload_gallery') || 'Upload from Gallery'}</span>
         </button>
+=======
+      <div className="absolute bottom-0 left-0 w-full p-6 pt-8 bg-[#1a1a1a]/95 backdrop-blur-md rounded-t-[32px] border-t border-white/10 shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-20 flex flex-col gap-5">
+        
+        <input 
+          type="file" 
+          accept="image/*,application/pdf" 
+          className="hidden" 
+          ref={fileInputRef}
+          onChange={handleCapturePhoto}
+        />
+>>>>>>> e3afe0f9ccf5d047b4e9d43239da8e0792adb203
 
-        <div className="flex items-center gap-3 w-full">
-           <div className="h-px bg-white/10 flex-1"></div>
-           <span className="text-[10px] text-white/40 font-bold tracking-widest uppercase">{t('scanner.or_enter_barcode') || 'Or Enter Barcode'}</span>
-           <div className="h-px bg-white/10 flex-1"></div>
-        </div>
+        {showOcrReview ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+              {reviewImagePreview && (
+                <img
+                  src={reviewImagePreview}
+                  alt="Ingredient label"
+                  className="w-16 h-16 rounded-xl object-cover border border-white/10 bg-black/40"
+                />
+              )}
+              {!reviewImagePreview && (
+                <div className="w-16 h-16 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center text-[10px] font-bold text-white/60">
+                  PDF
+                </div>
+              )}
+              <textarea
+                className="min-h-24 flex-1 resize-none bg-white/10 rounded-xl px-4 py-3 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-xs leading-relaxed backdrop-blur-md"
+                placeholder="Extracted ingredients..."
+                value={reviewOcrText}
+                onChange={(e) => setReviewOcrText(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={clearPhotoReview}
+                className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 text-white py-3 rounded-xl font-bold tracking-wider transition-all uppercase text-[10px]"
+              >
+                <Camera size={16} className="text-[#C9A84C]" />
+                Retake
+              </button>
+              <button
+                type="button"
+                onClick={handleAnalyzeReviewedPhoto}
+                disabled={!reviewImagePreview}
+                className="flex items-center justify-center gap-2 bg-[#C9A84C] hover:bg-[#b09341] text-[#1B6B3A] py-3 rounded-xl font-bold tracking-wider transition-all disabled:opacity-50 uppercase text-[10px]"
+              >
+                <Check size={16} />
+                Analyze
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isProcessingImage}
+              className="w-full flex items-center justify-center gap-3 bg-[#1B6B3A] hover:bg-[#14532b] text-white py-4 rounded-2xl font-bold tracking-wider transition-all disabled:opacity-70 shadow-lg shadow-[#1B6B3A]/30 border border-[#1B6B3A]/50 active:scale-[0.98] uppercase text-xs"
+            >
+              {isProcessingImage ? (
+                <>
+                  <Loader2 size={20} className="animate-spin text-[#C9A84C]" />
+                  <span className="text-white">{imageProcessingStep}</span>
+                </>
+              ) : (
+                <>
+                  <Camera size={20} className="text-[#C9A84C]" />
+                  <span>{t('scanner.snap_photo') || 'Upload Label Photo / PDF'}</span>
+                </>
+              )}
+            </button>
 
-        <form onSubmit={handleManualSubmit} className="flex flex-row relative">
-          <input 
-            className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
-            placeholder={t('scanner.placeholder') || "e.g. 3017620..."}
-            type="number"
-            value={manualBarcode}
-            onChange={(e) => setManualBarcode(e.target.value)}
-          />
-          <button 
-            type="submit"
-            className="absolute right-1.5 top-1.5 bottom-1.5 bg-[#C9A84C] hover:bg-[#b09341] px-5 rounded-lg transition-colors flex items-center justify-center text-[#1B6B3A] shadow-md disabled:opacity-40"
-            disabled={!manualBarcode.trim()}
-          >
-            <Search size={20} className="stroke-[3]" />
-          </button>
-        </form>
+            <div className="flex flex-col gap-2">
+              <input
+                className="w-full bg-white/10 rounded-xl px-4 py-3 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
+                placeholder="Certifying body (JAKIM, MUI, IFANCA, HFA, ESMA)"
+                value={certifyingBody}
+                list="certifying-body-options"
+                onChange={(e) => setCertifyingBody(e.target.value)}
+              />
+              <datalist id="certifying-body-options">
+                <option value="JAKIM" />
+                <option value="MUI" />
+                <option value="IFANCA" />
+                <option value="HFA" />
+                <option value="ESMA" />
+              </datalist>
+            </div>
+
+            <div className="flex items-center gap-3 w-full">
+               <div className="h-px bg-white/10 flex-1"></div>
+               <span className="text-[10px] text-white/40 font-bold tracking-widest uppercase">{t('scanner.or_enter_barcode') || 'Barcode or Text'}</span>
+               <div className="h-px bg-white/10 flex-1"></div>
+            </div>
+
+            <form onSubmit={handleManualSubmit} className="flex flex-row relative">
+              <input
+                className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
+                placeholder={t('scanner.placeholder') || "e.g. 3017620..."}
+                type="number"
+                value={manualBarcode}
+                onChange={(e) => setManualBarcode(e.target.value)}
+              />
+              <button
+                type="submit"
+                className="absolute right-1.5 top-1.5 bottom-1.5 bg-[#C9A84C] hover:bg-[#b09341] px-5 rounded-lg transition-colors flex items-center justify-center text-[#1B6B3A] shadow-md disabled:opacity-40"
+                disabled={!manualBarcode.trim()}
+              >
+                <Search size={20} className="stroke-[3]" />
+              </button>
+            </form>
+
+            <form onSubmit={handleManualTextSubmit} className="flex flex-row relative mt-1">
+              <input
+                className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
+                placeholder="Paste ingredients for backend analysis..."
+                type="text"
+                value={manualText}
+                onChange={(e) => setManualText(e.target.value)}
+              />
+              <button
+                type="submit"
+                className="absolute right-1.5 top-1.5 bottom-1.5 bg-[#C9A84C] hover:bg-[#b09341] px-5 rounded-lg transition-colors flex items-center justify-center text-[#1B6B3A] shadow-md disabled:opacity-40"
+                disabled={!manualText.trim()}
+              >
+                <Search size={20} className="stroke-[3]" />
+              </button>
+            </form>
+          </>
+        )}
 
         <button 
           className="w-full py-2 mt-1 text-[10px] font-bold tracking-widest uppercase text-white/40 hover:text-white transition-colors"

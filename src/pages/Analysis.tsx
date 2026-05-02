@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { fetchProductByBarcode, OFFProduct } from '../utils/openFoodFacts';
-import { runIntegratedAnalysis, runIntegratedImageAnalysis } from '../utils/systemIntegration';
+import { runIntegratedAnalysis, runIntegratedBarcodeAnalysis, runIntegratedImageAnalysis } from '../utils/systemIntegration';
 import { useAppStore, ScanRecord } from '../store/useAppStore';
 import { Badge } from '../components/Badge';
 import { ScanSearch, ArrowLeft, Cpu, Database, Network, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
@@ -12,7 +11,17 @@ export function Analysis() {
   const navigate = useNavigate();
   const barcode = searchParams.get('barcode');
   const type = searchParams.get('type');
-  const { addScan, madhab, pendingAnalysisImage, setPendingAnalysisImage } = useAppStore();
+  const {
+    addScan,
+    madhab,
+    pendingAnalysisImage,
+    setPendingAnalysisImage,
+    pendingAnalysisImageOcrText,
+    setPendingAnalysisImageOcrText,
+    pendingAnalysisText,
+    setPendingAnalysisText,
+    pendingCertifyingBody
+  } = useAppStore();
   const { t } = useTranslation();
   
   const [loading, setLoading] = useState(true);
@@ -22,83 +31,131 @@ export function Analysis() {
   const [showArch, setShowArch] = useState(false);
 
   useEffect(() => {
-    if (!barcode && type !== 'image') {
+    if (!barcode && type !== 'image' && type !== 'text') {
       navigate(-1);
       return;
     }
     
     const runAnalysis = async () => {
       try {
-        if (type === 'image' && pendingAnalysisImage) {
-          setStep('Running ML Framework & KR&R Engine...');
-          const integratedData = await runIntegratedImageAnalysis(pendingAnalysisImage, madhab);
+        if (type === 'image' && (pendingAnalysisImage || pendingAnalysisImageOcrText)) {
+          setStep('Running Flask ML API + KR&R Engine...');
+          const imageForAnalysis = pendingAnalysisImage || '';
+          const integratedData = await runIntegratedImageAnalysis(
+            imageForAnalysis,
+            madhab,
+            pendingAnalysisImageOcrText || undefined,
+            pendingCertifyingBody
+          );
           
           const finalScan: ScanRecord = {
-            id: Date.now().toString(),
+            id: integratedData.id || Date.now().toString(),
             date: new Date().toISOString(),
-            barcode: 'IMAGE_' + Date.now(),
+            barcode: integratedData.barcode || 'IMAGE_' + Date.now(),
             name: integratedData.name || "Photo Scan",
-            brand: "Custom Source",
-            image: pendingAnalysisImage,
+            brand: integratedData.brand || "Custom Source",
+            image: imageForAnalysis.startsWith('data:image') ? imageForAnalysis : null,
             ingredients: integratedData.ingredients || "Unknown",
             verdict: integratedData.finalVerdict,
             confidence: integratedData.confidence,
             flagged_ingredients: integratedData.flagged_ingredients || [],
             reason: integratedData.reason,
             recommendation: integratedData.recommendation,
+            certification: integratedData.certification,
+            ingredient_results: integratedData.ingredient_results,
+            triggered_rules: integratedData.triggered_rules,
             architectureDetails: integratedData.architectureDetails
           };
 
           setResult(finalScan);
-          useAppStore.getState().addScan(finalScan);
+          addScan(finalScan);
           setPendingAnalysisImage(null); // clear it
+          setPendingAnalysisImageOcrText(null);
+          setLoading(false);
+          return;
+        }
+
+        if (type === 'text' && pendingAnalysisText) {
+          setStep('Running Flask ML API + KR&R Engine...');
+          const integratedData = await runIntegratedAnalysis("Manual Scan", pendingAnalysisText, madhab, pendingCertifyingBody);
+          
+          const finalScan: ScanRecord = {
+            id: integratedData.id || Date.now().toString(),
+            date: new Date().toISOString(),
+            barcode: 'MANUAL_' + Date.now(),
+            name: "Manual Input",
+            brand: integratedData.brand || "User Input",
+            image: null,
+            ingredients: integratedData.ingredients || pendingAnalysisText,
+            verdict: integratedData.finalVerdict,
+            confidence: integratedData.confidence,
+            flagged_ingredients: integratedData.flagged_ingredients || [],
+            reason: integratedData.reason,
+            recommendation: integratedData.recommendation,
+            certification: integratedData.certification,
+            ingredient_results: integratedData.ingredient_results,
+            triggered_rules: integratedData.triggered_rules,
+            architectureDetails: integratedData.architectureDetails
+          };
+
+          setResult(finalScan);
+          addScan(finalScan);
+          setPendingAnalysisText(null); // clear it
           setLoading(false);
           return;
         }
 
         if (barcode) {
-          setStep('Fetching product details...');
-          const product = await fetchProductByBarcode(barcode);
-          
-          if (!product) {
-            setErrorMsg("Product not found in the OpenFoodFacts database. Try scanning the ingredients list via the camera instead.");
-            setLoading(false);
-            return;
-          }
-
-          setStep('Running Hybrid Inference (ML + KR&R)...');
-          const integratedData = await runIntegratedAnalysis(product.name, product.ingredients, madhab);
+          setStep('Fetching product and running Flask ML API + KR&R...');
+          const integratedData = await runIntegratedBarcodeAnalysis(barcode, madhab, pendingCertifyingBody);
           
           const finalScan: ScanRecord = {
-            id: Date.now().toString(),
+            id: integratedData.id || Date.now().toString(),
             date: new Date().toISOString(),
-            barcode: barcode,
-            name: product.name,
-            brand: product.brand,
-            image: product.image,
-            ingredients: product.ingredients,
+            barcode: integratedData.barcode || barcode,
+            name: integratedData.name || 'Unknown Barcode Product',
+            brand: integratedData.brand || 'OpenFoodFacts / User Input',
+            image: integratedData.image || null,
+            ingredients: integratedData.ingredients || 'No ingredients listed.',
             verdict: integratedData.finalVerdict,
             confidence: integratedData.confidence,
             flagged_ingredients: integratedData.flagged_ingredients,
             reason: integratedData.reason,
             recommendation: integratedData.recommendation,
+            certification: integratedData.certification,
+            ingredient_results: integratedData.ingredient_results,
+            triggered_rules: integratedData.triggered_rules,
             architectureDetails: integratedData.architectureDetails
           };
 
           setResult(finalScan);
-          useAppStore.getState().addScan(finalScan);
+          addScan(finalScan);
           setLoading(false);
         }
 
       } catch (error) {
         console.error(error);
-        setErrorMsg("We encountered an issue analyzing this product. Please check your internet connection or verify your API key in Settings.");
+        const message = error instanceof Error ? error.message : "We encountered an issue analyzing this product. Please check your internet connection and try again.";
+        setErrorMsg(message);
         setLoading(false);
       }
     };
 
     runAnalysis();
-  }, [barcode, type, madhab, navigate, pendingAnalysisImage, setPendingAnalysisImage]);
+  }, [
+    barcode,
+    type,
+    madhab,
+    navigate,
+    addScan,
+    pendingAnalysisImage,
+    setPendingAnalysisImage,
+    pendingAnalysisImageOcrText,
+    setPendingAnalysisImageOcrText,
+    pendingAnalysisText,
+    setPendingAnalysisText,
+    pendingCertifyingBody
+  ]);
 
   if (errorMsg) {
     return (
@@ -172,15 +229,15 @@ export function Analysis() {
     );
   }
 
-  const borderClass = result.verdict === 'HALAL' 
+  const borderClass = result.verdict === 'HALAL' || result.verdict === 'HALAL COMPLIANT'
     ? 'border-green-600' 
-    : result.verdict === 'HARAM' 
+    : result.verdict === 'HARAM' || result.verdict === 'NON-COMPLIANT'
     ? 'border-red-600' 
     : 'border-amber-600';
 
-  const textClass = result.verdict === 'HALAL' 
+  const textClass = result.verdict === 'HALAL' || result.verdict === 'HALAL COMPLIANT'
     ? 'text-green-600 dark:text-green-400' 
-    : result.verdict === 'HARAM' 
+    : result.verdict === 'HARAM' || result.verdict === 'NON-COMPLIANT'
     ? 'text-red-600 dark:text-red-400' 
     : 'text-amber-600 dark:text-amber-400';
 
@@ -232,6 +289,45 @@ export function Analysis() {
             </div>
           </div>
         )}
+
+        {result.certification && (
+          <div className="bg-white dark:bg-[#1a2e22] rounded-2xl p-4 mb-4 shadow-sm border border-gray-100 dark:border-gray-800">
+            <h3 className="text-[11px] font-bold text-[#1B6B3A] dark:text-green-500 uppercase mb-2 tracking-wider">Certification Check</h3>
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <span className="text-[10px] text-gray-500 dark:text-gray-400">Input</span>
+              <span className="text-[10px] font-bold text-gray-800 dark:text-gray-200">{result.certification.input || 'Not provided'}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <span className="text-[10px] text-gray-500 dark:text-gray-400">Status</span>
+              <span className={`text-[10px] font-bold ${result.certification.recognized ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{result.certification.status}</span>
+            </div>
+            <p className="text-[9px] leading-relaxed text-gray-500 dark:text-gray-400">{result.certification.reason}</p>
+          </div>
+        )}
+
+        {result.ingredient_results && result.ingredient_results.length > 0 && (
+          <div className="bg-white dark:bg-[#1a2e22] rounded-2xl p-4 mb-4 shadow-sm border border-gray-100 dark:border-gray-800">
+            <h3 className="text-[11px] font-bold text-[#1B6B3A] dark:text-green-500 uppercase mb-3 tracking-wider">Per-Ingredient Classification</h3>
+            <div className="space-y-2">
+              {result.ingredient_results.map((item: any, idx: number) => (
+                <div key={`${item.ingredient}-${idx}`} className="rounded-xl bg-gray-50 dark:bg-[#0f1a13] p-3 border border-gray-100 dark:border-gray-800">
+                  <div className="flex items-start justify-between gap-3 mb-1">
+                    <span className="text-[10px] font-bold text-gray-800 dark:text-gray-200">{item.ingredient}</span>
+                    <span className={`text-[9px] font-bold ${item.status === 'HARAM' ? 'text-red-600 dark:text-red-400' : item.status === 'HALAL' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{item.status}</span>
+                  </div>
+                  <p className="text-[8px] leading-relaxed text-gray-500 dark:text-gray-400">{item.reason}</p>
+                  {item.rule_ids && item.rule_ids.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {item.rule_ids.map((rule: string) => (
+                        <span key={rule} className="px-1.5 py-0.5 rounded bg-[#1B6B3A]/10 text-[#1B6B3A] dark:text-green-400 text-[8px] font-bold">{rule}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
         {/* Architecture Logs (Fulfills Project Rubric) */}
         {result.architectureDetails && (
@@ -264,13 +360,19 @@ export function Analysis() {
 
                   <div>
                     <h4 className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-2">
-                      <Network size={12} /> ML Model Inferencing (Gemini)
+                      <Network size={12} /> ML API Classification (RapidAPI / Fallback)
                     </h4>
                      <div className="bg-gray-50 dark:bg-[#0f1a13] rounded p-2 border border-gray-100 dark:border-gray-800 font-mono text-[8px] text-gray-600 dark:text-gray-400">
+<<<<<<< HEAD
                       <div>Model: gemini-2.5-flash (Large Language/Vision Model)</div>
                       <div>Response Format: application/json (structured output)</div>
                       <div>Verdict Generated: {result.architectureDetails.mlAnalysis?.verdict || 'N/A'}</div>
                       <div>ML Confidence: {result.architectureDetails.mlAnalysis?.confidence || 'N/A'}%</div>
+=======
+                      <div>Primary: Halal Food Checker via RapidAPI</div>
+                      <div>MimeType: application/json</div>
+                      <div>Verdict Generated: {result.architectureDetails.mlAnalysis?.verdict || result.verdict || 'N/A'}</div>
+>>>>>>> e3afe0f9ccf5d047b4e9d43239da8e0792adb203
                      </div>
                   </div>
 

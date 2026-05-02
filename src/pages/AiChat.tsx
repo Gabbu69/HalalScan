@@ -80,7 +80,7 @@ export function AiChat() {
           <h2 className="font-amiri italic text-xl text-[#1B6B3A] dark:text-green-400 font-bold leading-tight">
             {t('chat.title') || (isGeneral ? "Scan AI" : "Ask Imam AI")}
           </h2>
-          <p className="text-[10px] text-gray-500 font-bold tracking-wider uppercase">Powered by Gemini</p>
+          <p className="text-[10px] text-gray-500 font-bold tracking-wider uppercase">Flask KB + Fallback AI</p>
         </div>
       </div>
 

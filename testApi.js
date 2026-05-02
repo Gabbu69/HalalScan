@@ -1,12 +1,23 @@
 import { GoogleGenAI } from '@google/genai';
 
 const getAiClient = () => {
-  return new GoogleGenAI({ apiKey: 'AIzaSyBUJXbECjy6_gEd_jb2UnUVkkWjw6oT-Sc' });
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+
+  if (!apiKey) {
+    return null;
+  }
+
+  return new GoogleGenAI({ apiKey });
 };
 
 async function testModel(modelName) {
   try {
     const ai = getAiClient();
+    if (!ai) {
+      console.log('Skipping Gemini API smoke test: no Gemini API key is configured.');
+      return;
+    }
+
     const response = await ai.models.generateContent({
       model: modelName,
       contents: "hello",
@@ -18,9 +29,7 @@ async function testModel(modelName) {
 }
 
 async function run() {
-  await testModel('gemini-flash-latest');
-  await testModel('gemini-3.1-flash-lite-preview');
-  await testModel('gemini-3-flash-preview');
+  await testModel(process.env.GEMINI_MODEL || 'gemini-2.5-flash');
 }
 
 run();

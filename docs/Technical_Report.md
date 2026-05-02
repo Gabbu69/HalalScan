@@ -1,5 +1,6 @@
-# Technical Report: HalalScan Neuro-Symbolic AI System
+# Technical Report: HalalScan DOCX-Compliant Architecture
 
+<<<<<<< HEAD
 ## 1. System Architecture
 
 HalalScan is designed as an end-to-end, full-stack application leveraging a hybrid Neuro-Symbolic AI architecture. The system integrates a generative Machine Learning (ML) model with a deterministic Knowledge Representation and Reasoning (KR&R) engine to ensure high accuracy and absolute reliability in dietary compliance.
@@ -57,9 +58,21 @@ HalalScan is designed as an end-to-end, full-stack application leveraging a hybr
 │  Output: Final Verdict + Confidence + Architecture Logs  │
 └──────────────────────────────────────────────────────────┘
 ```
+=======
+HalalScan now follows the submitted DOCX proposal: React frontend, Python Flask backend, Google Vision OCR, RapidAPI Halal Food Checker, a 60-rule knowledge base, certifying-body verification, and SQLite storage.
 
-## 2. Implementation Details
+## Architecture
+>>>>>>> e3afe0f9ccf5d047b4e9d43239da8e0792adb203
 
+- React/Vite frontend calls Flask through `/api/*`.
+- Flask exposes `/api/ocr`, `/api/analyze`, `/api/rules`, and `/api/history`.
+- Vercel deployment uses matching TypeScript serverless routes in `api/*.ts`, so the deployed app does not require a long-running Flask process.
+- Google Vision is the primary OCR engine for images and the first 5 PDF pages.
+- RapidAPI Halal Food Checker is the primary ML classification layer.
+- Knowledge-based reasoning applies deterministic halal rules and certifying-body checks.
+- SQLite stores scan history and cached ingredient classifications.
+
+<<<<<<< HEAD
 ### ML Model Implementation
 The system utilizes a pre-trained Large Language/Vision Model (Google Gemini 2.5 Flash).
 - For text queries, the input is wrapped in a strict system prompt enforcing JSON output with fields for `verdict`, `confidence`, `flagged_ingredients`, `reason`, and `recommendation`.
@@ -128,9 +141,19 @@ The core integration mechanism in `buildConsensus()` implements three scenarios:
 1. **CRITICAL VETO**: KR&R=HARAM, ML≠HARAM → KR&R overrides ML. Confidence forced to max(KR&R confidence, 95%). This handles LLM hallucination scenarios.
 2. **ESCALATION**: KR&R=MASHBOOH, ML=HALAL → Verdict escalated to MASHBOOH. This implements the precautionary principle.
 3. **CONSENSUS**: Both engines agree → Use the higher confidence value. Integration logged as smooth consensus.
+=======
+## Verdicts
 
-## 3. Results and Evaluation
+- `NON-COMPLIANT`: any haram ingredient from API or KB.
+- `HALAL COMPLIANT`: all ingredients clear and certifying body recognized.
+- `REQUIRES REVIEW`: doubtful/unknown ingredient, missing certifier, or unrecognized certifier.
 
+Recognized bodies: JAKIM, MUI, IFANCA, HFA, ESMA.
+>>>>>>> e3afe0f9ccf5d047b4e9d43239da8e0792adb203
+
+## Evidence
+
+<<<<<<< HEAD
 ### Test Dataset
 A curated test dataset of **25 products** was assembled with known ground-truth verdicts:
 - **8 HALAL** products (plain foods with no prohibited ingredients)
@@ -197,3 +220,25 @@ Sources: OpenFoodFacts database, JAKIM certified product records, manual verific
 2. **Local ML Model**: Train a lightweight TF-IDF + Naive Bayes classifier for offline inference when the Gemini API is unreachable.
 3. **Community Database**: Allow users to contribute verified product scans to a shared Supabase database.
 4. **Certification Integration**: Connect to official Halal certification body APIs (JAKIM, MUI, IFANCA) for real-time product verification.
+=======
+- `backend/data/halal_rules.json`: 60 rules and recognized-body records.
+- `backend/app.py`: Flask API.
+- `backend/analysis.py`: integration and verdict logic.
+- `backend/ocr.py`: Google Vision image/PDF OCR path.
+- `backend/rapidapi_client.py`: RapidAPI client and SQLite cache.
+- `backend/tests/test_app.py`: mocked backend tests.
+- `api/_halalscan.ts`: Vercel serverless adapter for the same ML + KBR + SI behavior.
+
+## Tests
+
+Run:
+
+```bash
+npm run lint
+npm run evaluate
+npm run test:backend
+npm run test:vercel-api
+```
+
+Live API credentials are optional for tests and required only for live Google Vision/RapidAPI calls.
+>>>>>>> e3afe0f9ccf5d047b4e9d43239da8e0792adb203

@@ -15,6 +15,7 @@ import { History } from './pages/History';
 import { Knowledge } from './pages/Knowledge';
 import { Profile } from './pages/Profile';
 import { AiChat } from './pages/AiChat';
+import { Evaluation } from './pages/Evaluation';
 
 export default function App() {
   const { hasOnboarded, language } = useAppStore();
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="/chat" element={<AiChat />} />
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/evaluation" element={<Evaluation />} />
         </Route>
 
         <Route path="/scanner" element={hasOnboarded ? <Scanner /> : <Navigate to="/onboarding" />} />

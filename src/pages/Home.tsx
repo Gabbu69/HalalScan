@@ -142,8 +142,10 @@ export function Home() {
         ) : (
           <div className="space-y-2">
             {recentScans.map(scan => {
-              const Icon = scan.verdict === 'HALAL' ? CheckCircle2 : scan.verdict === 'HARAM' ? XCircle : AlertTriangle;
-              const iconBg = scan.verdict === 'HALAL' ? 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400' : scan.verdict === 'HARAM' ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400';
+              const isHalal = scan.verdict === 'HALAL' || scan.verdict === 'HALAL COMPLIANT';
+              const isHaram = scan.verdict === 'HARAM' || scan.verdict === 'NON-COMPLIANT';
+              const Icon = isHalal ? CheckCircle2 : isHaram ? XCircle : AlertTriangle;
+              const iconBg = isHalal ? 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400' : isHaram ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400';
               return (
                 <div key={scan.id} className="bg-white dark:bg-[#1a2e22] p-2 rounded-lg flex items-center gap-3 shadow-sm border border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a2e22]/80 transition-colors" onClick={() => navigate('/history')}>
                   <div className={`w-8 h-8 rounded flex items-center justify-center flex-shrink-0 ${iconBg}`}>

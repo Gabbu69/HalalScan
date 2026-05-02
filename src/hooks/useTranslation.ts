@@ -4,10 +4,9 @@ import { translations } from '../utils/translations';
 export function useTranslation() {
   const language = useAppStore((state) => state.language);
 
-  const t = (key: string): string => {
-    // Default to English if language or key is not found
+  const t = (key: string): string | undefined => {
     const langDict = translations[language] || translations['English'];
-    return langDict[key] || translations['English'][key] || key;
+    return langDict[key] || translations['English'][key] || undefined;
   };
 
   return { t, language };

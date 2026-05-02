@@ -1,63 +1,95 @@
 # HalalScan
 
-HalalScan is a modern React application built to help users quickly scan and identify Halal products. It utilizes a combination of QR/barcode scanning and AI-powered analysis to provide accurate and immediate feedback on product ingredients and status.
+HalalScan is a React + Flask web application for halal compliance screening. It follows the DOCX proposal architecture: Google Vision extracts label text, RapidAPI Halal Food Checker classifies ingredients, and a knowledge-based reasoning engine applies strict halal rules before returning a final verdict.
 
-## Features
+## Current Architecture
 
-- **Product Scanning**: Built-in barcode and QR code scanner using `html5-qrcode`.
-- **AI-Powered Analysis**: Integrates with Google GenAI for intelligent product assessment.
-- **Modern UI**: Styled with Tailwind CSS for a sleek, responsive, and accessible interface.
-- **Fast & Optimized**: Bootstrapped with Vite and React 19 for blazing-fast development and optimized production builds.
+- **Frontend**: React 19, Vite, Tailwind CSS, Zustand, `html5-qrcode`.
+- **Backend**: Python Flask API on `localhost:5000`.
+- **Vercel Adapter**: TypeScript serverless routes mirror the Flask analysis logic for deployed builds.
+- **OCR**: Google Vision `DOCUMENT_TEXT_DETECTION` for images and first 5 PDF pages.
+- **ML Classification**: Halal Food Checker through RapidAPI, cached in SQLite.
+- **Knowledge Base**: 60 structured rules plus recognized certifying bodies: JAKIM, MUI, IFANCA, HFA, and ESMA.
+- **Storage**: SQLite for scan history and ingredient classification cache.
+- **Fallbacks**: Existing Gemini/Tesseract/local Naive Bayes paths remain as optional local fallback support.
 
-## Tech Stack
+## Verdict Model
 
-- **Frontend Framework**: React 19, React Router DOM
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS (v4)
-- **State Management**: Zustand
-- **Hardware Integration**: html5-qrcode
-- **AI Integration**: Google GenAI (`@google/genai`)
+- `NON-COMPLIANT`: any ingredient is haram by API or knowledge-base rule.
+- `HALAL COMPLIANT`: all ingredients are clear and the certifying body is recognized.
+- `REQUIRES REVIEW`: any ingredient is doubtful/unknown, or the certifying body is missing/unrecognized.
 
-## Getting Started
+## Setup
 
-### Prerequisites
+Install Node dependencies:
 
-Ensure you have [Node.js](https://nodejs.org/) installed on your machine.
+```bash
+npm install
+```
 
-### Installation
+Install backend dependencies:
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Gabbu69/HalalScan.git
-   cd HalalScan
-   ```
+```bash
+python -m pip install -r backend/requirements.txt
+```
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+Copy `.env.example` to `.env` and configure live API credentials when available:
 
-3. Environment Setup:
-   Copy the example environment file and add your credentials.
-   ```bash
-   cp .env.example .env
-   ```
-   *Make sure to add your `GEMINI_API_KEY` to the `.env` file.*
+```text
+GOOGLE_APPLICATION_CREDENTIALS=C:/path/to/google-vision-service-account.json
+RAPIDAPI_KEY=your_rapidapi_key
+```
 
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
+Live credentials are optional for local tests. Without them, OCR and RapidAPI calls skip or fallback cleanly.
 
-The application will be running at `http://localhost:3000`.
+## Run Locally
 
-## Scripts
+Start Flask:
 
-- `npm run dev`: Starts the development server.
-- `npm run build`: Builds the application for production.
-- `npm run preview`: Previews the production build locally.
-- `npm run lint`: Runs TypeScript type checking.
+```bash
+npm run backend
+```
 
-## Contributing
+Start React in another terminal:
 
-Please ensure you create a new branch for any feature or bugfix before submitting a pull request. Make sure to run `npm run lint` and verify your changes locally.
+```bash
+npm run dev
+```
+
+Vite proxies `/api/*` to `http://localhost:5000`.
+
+## Vercel Deployment
+
+The deployed app uses `api/*.ts` serverless routes, so it does not need a long-running Flask server on Vercel. These routes expose the same public API shape:
+
+- `api/analyze.ts`: DOCX verdict logic, RapidAPI classification, OpenFoodFacts lookup, KB reasoning.
+- `api/ocr.ts`: Google Vision REST OCR when Vercel service-account env vars are configured.
+- `api/rules.ts`: 60-rule knowledge base.
+- `api/history.ts`: serverless-memory response; the frontend also persists scan history in localStorage.
+
+Set these Vercel environment variables for live external services:
+
+```text
+RAPIDAPI_KEY=your_rapidapi_key
+GOOGLE_APPLICATION_CREDENTIALS_JSON={"type":"service_account",...}
+```
+
+If Google Vision is not configured, image scans still fall back to browser OCR for images. If RapidAPI is not configured, the knowledge base still performs deterministic reasoning and marks unresolved ingredients for review.
+
+## Tests
+
+```bash
+npm run lint
+npm run evaluate
+npm run test:backend
+npm run test:vercel-api
+```
+
+`npm run test:backend` uses mocked/no-credential paths for Google Vision, RapidAPI, OpenFoodFacts, and SQLite behavior.
+
+## Main API
+
+- `POST /api/ocr`: label image/PDF OCR through Google Vision, with graceful no-credential fallback.
+- `POST /api/analyze`: barcode/text/OCR analysis with RapidAPI + knowledge-base reasoning.
+- `GET /api/rules`: current knowledge base and recognized certifying bodies.
+- `GET /api/history`: SQLite-backed scan history.

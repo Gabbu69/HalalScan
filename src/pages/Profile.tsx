@@ -6,8 +6,6 @@ import { useTranslation } from '../hooks/useTranslation';
 export function Profile() {
   const { t } = useTranslation();
   const { isDarkMode, toggleDarkMode, madhab, setMadhab, language, setLanguage, userProfile, updateUserProfile } = useAppStore();
-  const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_api_key_override') || '');
-  const [saved, setSaved] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState(userProfile.name);
   const [editEmail, setEditEmail] = useState(userProfile.email);
@@ -24,15 +22,7 @@ export function Profile() {
     }
   };
   
-  const handleSaveKey = () => {
-    if (apiKey.trim()) {
-      localStorage.setItem('gemini_api_key_override', apiKey.trim());
-    } else {
-      localStorage.removeItem('gemini_api_key_override');
-    }
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
+
 
   const handleSaveProfile = () => {
     updateUserProfile({ name: editName, email: editEmail });
@@ -209,30 +199,7 @@ export function Profile() {
           </div>
         </div>
 
-        {/* API Key Section */}
-        <div className="bg-white dark:bg-[#1a2e22] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
-          <h3 className="text-[11px] font-bold text-[#1B6B3A] dark:text-green-400 uppercase mb-3 tracking-wider flex items-center gap-2">
-            <Key size={14} /> {t('profile.api_key')}
-          </h3>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
-            {t('profile.api_key_desc')}
-          </p>
-          <div className="flex flex-col gap-2">
-            <input
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="AIzaSy..."
-              type="password"
-              className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0f1a13] text-gray-900 dark:text-white text-xs focus:outline-none focus:border-[#1B6B3A] transition-colors font-mono"
-            />
-            <button 
-              onClick={handleSaveKey}
-              className={`py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors shadow-sm ${saved ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-            >
-              {saved ? t('profile.saved') : t('profile.save_key')}
-            </button>
-          </div>
-        </div>
+
 
         {/* About Section */}
         <div className="bg-white dark:bg-[#1a2e22] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">

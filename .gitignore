@@ -6,4 +6,12 @@ coverage/
 *.log
 .env*
 !.env.example
+<<<<<<< HEAD
 .env 
+=======
+.vercel
+backend/data/*.sqlite3
+backend/data/*.sqlite3-*
+__pycache__/
+.pytest_cache/
+>>>>>>> e3afe0f9ccf5d047b4e9d43239da8e0792adb203
