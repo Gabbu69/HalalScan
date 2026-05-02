@@ -50,7 +50,10 @@ export const loadKnowledgeBase = (): KnowledgeBase => {
 };
 
 const normalizeText = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
-const normalizeEcodes = (value: string) => normalizeText(value).replace(/\be[\s-]+(?=\d)/g, 'e');
+const normalizeEcodes = (value: string) =>
+  normalizeText(value)
+    .replace(/[\u2010-\u2015]/g, '-')
+    .replace(/\be[\s-]+(?=\d)/g, 'e');
 
 const containsTerm = (source: string, term: string) => {
   const sourceNorm = normalizeEcodes(source);
@@ -306,6 +309,8 @@ export const analyzePayload = async (payload: any) => {
     'Input collection complete.',
     `Certifying body status: ${certification.status}.`,
   ];
+  const factTrace: any[] = [];
+  const matchedRuleTrace: any[] = [];
 
   let ingredientResults: any[];
   if (isMissingIngredients(ingredientsText)) {
@@ -320,6 +325,13 @@ export const analyzePayload = async (payload: any) => {
       matched_rules: [],
       source: 'input-quality-guard',
     }];
+    factTrace.push({
+      ingredient: 'insufficient ingredient information',
+      kb_status: 'UNKNOWN',
+      api_status: 'UNAVAILABLE',
+      final_status: 'UNKNOWN',
+      rule_ids: ['INSUFFICIENT_DATA'],
+    });
     logicPath.push('No usable ingredient facts were available.');
   } else {
     const ingredients = splitIngredients(ingredientsText);
@@ -334,6 +346,14 @@ export const analyzePayload = async (payload: any) => {
       if (finalStatus === 'INFO' || finalStatus === 'UNAVAILABLE') finalStatus = 'UNKNOWN';
 
       const ruleIds = kbResult.matched_rules.map((rule: any) => rule.id);
+      factTrace.push({
+        ingredient,
+        kb_status: kbResult.status,
+        api_status: apiStatus,
+        final_status: finalStatus,
+        rule_ids: ruleIds,
+      });
+      matchedRuleTrace.push(...kbResult.matched_rules);
       if (ruleIds.length > 0) logicPath.push(`Rule match for '${ingredient}': ${ruleIds.join(', ')} -> ${kbResult.status}.`);
       if (apiStatus !== 'UNAVAILABLE' && apiStatus !== 'INFO') logicPath.push(`RapidAPI classification for '${ingredient}': ${apiStatus}.`);
 
@@ -407,6 +427,19 @@ export const analyzePayload = async (payload: any) => {
             ruleId: row.rule_ids.join(',') || 'UNRESOLVED',
           })),
         logicPath,
+        facts: factTrace,
+        matchedRules: matchedRuleTrace,
+        conflictResolution: {
+          priority: ['HARAM', 'DOUBTFUL', 'UNKNOWN', 'HALAL'],
+          selectedVerdict: finalVerdict,
+          reason,
+        },
+        certificationCheck: certification,
+        evaluationNotes: [
+          'RapidAPI Halal Food Checker is the primary ingredient classifier when RAPIDAPI_KEY is configured.',
+          'Knowledge-base rules are always evaluated and can veto API output.',
+          'No-credential runs remain deterministic by treating live API status as unavailable.',
+        ],
       },
       mlAnalysis: {
         provider: 'RapidAPI Halal Food Checker',
@@ -586,4 +619,3 @@ export const runOcrPayload = async (payload: any) => {
     filename,
   };
 };
-

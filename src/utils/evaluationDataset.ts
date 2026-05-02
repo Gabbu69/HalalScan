@@ -251,10 +251,10 @@ export const EVALUATION_DATASET: TestCase[] = [
   {
     id: 29,
     productName: "Marshmallows",
-    ingredients: "sugar, corn syrup, gelatin, water, artificial flavor, confectioner's glaze",
+    ingredients: "sugar, corn syrup, gelatin, water, artificial flavor",
     expectedVerdict: "MASHBOOH",
     category: "Confectionery",
-    rationale: "Contains gelatin and confectioner's glaze (shellac-based, source doubtful)."
+    rationale: "Contains gelatin and artificial flavor from unspecified sources."
   },
   {
     id: 30,

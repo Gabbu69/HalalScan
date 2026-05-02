@@ -38,7 +38,8 @@ def normalize_text(value: str) -> str:
 
 
 def normalize_ecodes(value: str) -> str:
-    return re.sub(r"\be[\s-]+(?=\d)", "e", normalize_text(value))
+    normalized = re.sub(r"[\u2010-\u2015]", "-", normalize_text(value))
+    return re.sub(r"\be[\s-]+(?=\d)", "e", normalized)
 
 
 def contains_term(source: str, term: str) -> bool:
@@ -118,4 +119,3 @@ def evaluate_ingredient_against_rules(ingredient: str) -> dict[str, Any]:
         "matched_rules": matched,
         "reason": strongest["reason"],
     }
-

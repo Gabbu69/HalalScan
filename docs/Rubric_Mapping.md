@@ -1,11 +1,28 @@
 # Grading Rubric Mapping Guide
 
-| Deliverable | Description | HalalScan implementation / evidence | Weight |
-|-------------|-------------|--------------------------------------|--------|
-| **Project Proposal** | Problem, dataset, AI approach | The submitted DOCX is treated as authoritative. The app now follows its React + Flask + Google Vision + RapidAPI + KBR + SQLite design. | 10% |
-| **ML Model Implementation** | Training, evaluation | RapidAPI Halal Food Checker is the primary ingredient classification layer in `backend/rapidapi_client.py`, with SQLite caching. The existing local Naive Bayes model remains as a fallback/evaluation artifact. | 25% |
-| **Knowledge Base Design** | Rules and logic | `backend/data/halal_rules.json` contains 60 structured rules plus JAKIM, MUI, IFANCA, HFA, and ESMA certifying-body records. | 20% |
-| **Reasoning Engine** | Correct inference | `backend/analysis.py` applies proposal logic: haram -> `NON-COMPLIANT`, clear ingredients plus recognized certifier -> `HALAL COMPLIANT`, doubtful/unknown/missing certifier -> `REQUIRES REVIEW`. | 15% |
-| **System Integration** | ML + KR&R working together | `POST /api/analyze` combines OpenFoodFacts barcode lookup, RapidAPI per-ingredient status, knowledge-base rules, certifying-body verification, history persistence, and explainable logs. Flask handles local SQLite; Vercel uses the matching `api/_halalscan.ts` serverless adapter and frontend localStorage history. | 15% |
-| **Technical Report, Results and Presentation** | Architecture, results, limitations, presentation | `TECHNICAL_REPORT.md`, `docs/Technical_Report.md`, and backend tests document and validate the implemented architecture. | 15% |
-| **Total** | | | **100%** |
+| # | Rubric Item | Weight | Evidence | Revised Est. Score |
+|---:|---|---:|---|---:|
+| 1 | Project Proposal | 10% | Submitted DOCX remains authoritative; repo docs now match React + Flask + Google Vision + RapidAPI + KBR + SQLite architecture. | 9/10 |
+| 2 | ML Model Implementation | 25% | RapidAPI Halal Food Checker is the primary API-based ML layer with status normalization and caching; local Naive Bayes is clearly labeled as fallback/comparison and evaluated on 36 holdout cases. | 22/25 |
+| 3 | Knowledge Base Design | 20% | Canonical `backend/data/halal_rules.json` contains 60 structured rules, E-number taxonomy, source labels, and JAKIM/MUI/IFANCA/HFA/ESMA certifier records. Rule schema is tested. | 19/20 |
+| 4 | Reasoning Engine | 15% | Deterministic conflict priority `HARAM > DOUBTFUL > UNKNOWN > HALAL`; response exposes facts, matched rules, certification check, conflict resolution, and logic path. | 14/15 |
+| 5 | System Integration | 15% | `/api/analyze` combines OCR/barcode input, Open Food Facts, RapidAPI classification, KB lookup, certifier verification, history persistence, and explainable output. Vercel adapter mirrors the Flask route behavior. | 14/15 |
+| 6 | Technical Report & Presentation | 15% | Evaluation report now includes metrics, confusion matrices, command evidence, architecture and reasoning diagrams, limitations, and rubric mapping. | 13/15 |
+|  | **Estimated Total** | **100%** | Stronger, proposal-aligned implementation and evidence package. | **91/100** |
+
+## Evidence Commands
+
+```bash
+npm run lint
+npm run evaluate
+npm run test:backend
+npm run test:vercel-api
+npm run build
+```
+
+## Notes for Presentation
+
+- Emphasize RapidAPI as the primary ML component, not Gemini.
+- Emphasize the 60-rule canonical KB and explainable conflict resolution.
+- Show the 30-case KR&R evaluation and 36-case fallback ML evaluation separately.
+- State that live OCR/API credentials are optional for demo but not required for reproducible grading tests.

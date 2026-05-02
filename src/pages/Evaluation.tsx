@@ -273,7 +273,7 @@ export function Evaluation() {
                         <div className="flex items-center gap-2 ml-5 mt-1">
                           <span className="text-[8px] text-gray-500">Expected:</span>
                           <span className={`text-[9px] font-bold ${expected.text} ${expected.darkText}`}>{row.testCase.expectedVerdict}</span>
-                          <span className="text-[8px] text-gray-400">→</span>
+                          <span className="text-[8px] text-gray-400">-&gt;</span>
                           <span className="text-[8px] text-gray-500">Got:</span>
                           <span className={`text-[9px] font-bold ${predicted.text} ${predicted.darkText}`}>{row.predictedVerdict}</span>
                         </div>

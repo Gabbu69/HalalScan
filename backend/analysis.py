@@ -70,6 +70,8 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
             ingredients_text = off_product.get("ingredients", "")
 
     cert_result = verify_certifying_body(certifying_body)
+    fact_trace: list[dict[str, Any]] = []
+    matched_rule_trace: list[dict[str, Any]] = []
     logic_path = [
         "Input collection complete.",
         f"Certifying body status: {cert_result['status']}.",
@@ -89,6 +91,15 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 "source": "input-quality-guard",
             }
         ]
+        fact_trace.append(
+            {
+                "ingredient": "insufficient ingredient information",
+                "kb_status": "UNKNOWN",
+                "api_status": "UNAVAILABLE",
+                "final_status": "UNKNOWN",
+                "rule_ids": ["INSUFFICIENT_DATA"],
+            }
+        )
         logic_path.append("No usable ingredient facts were available.")
     else:
         ingredients = split_ingredients(ingredients_text)
@@ -107,6 +118,16 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 final_status = "UNKNOWN"
 
             rule_ids = [rule["id"] for rule in kb_result["matched_rules"]]
+            fact_trace.append(
+                {
+                    "ingredient": ingredient,
+                    "kb_status": kb_status,
+                    "api_status": api_status,
+                    "final_status": final_status,
+                    "rule_ids": rule_ids,
+                }
+            )
+            matched_rule_trace.extend(kb_result["matched_rules"])
             if rule_ids:
                 logic_path.append(
                     f"Rule match for '{ingredient}': {', '.join(rule_ids)} -> {kb_status}."
@@ -188,6 +209,19 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
                     if row["status"] in {"HARAM", "DOUBTFUL", "UNKNOWN"}
                 ],
                 "logicPath": logic_path,
+                "facts": fact_trace,
+                "matchedRules": matched_rule_trace,
+                "conflictResolution": {
+                    "priority": ["HARAM", "DOUBTFUL", "UNKNOWN", "HALAL"],
+                    "selectedVerdict": final_verdict,
+                    "reason": reason,
+                },
+                "certificationCheck": cert_result,
+                "evaluationNotes": [
+                    "RapidAPI Halal Food Checker is the primary ingredient classifier when RAPIDAPI_KEY is configured.",
+                    "Knowledge-base rules are always evaluated and can veto API output.",
+                    "No-credential runs remain deterministic by treating live API status as unavailable.",
+                ],
             },
             "mlAnalysis": {
                 "provider": "RapidAPI Halal Food Checker",
@@ -199,4 +233,3 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
     }
     save_scan(scan)
     return scan
-

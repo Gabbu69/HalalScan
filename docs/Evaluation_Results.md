@@ -1,58 +1,102 @@
 # Evaluation Results: HalalScan
 
-## Backend Compliance Tests
+Verified locally on May 2, 2026. Live Google Vision and RapidAPI keys were not required for these reproducible tests; no-key behavior is part of the tested fallback path.
 
-The Flask backend test suite validates the DOCX-aligned behavior without requiring live credentials:
+## Summary
 
-- Rule count is at least 50.
-- Recognized certifying bodies include JAKIM, MUI, IFANCA, HFA, and ESMA.
-- E120/carmine produces `NON-COMPLIANT`.
-- Clear ingredients with recognized certification produce `HALAL COMPLIANT`.
-- Missing or unrecognized certifying bodies produce `REQUIRES REVIEW`.
-- Gelatin/natural flavors produce `REQUIRES REVIEW`.
-- Missing ingredient text produces `REQUIRES REVIEW`.
-- Google Vision OCR skips cleanly when credentials are not configured.
-- SQLite history persists scan results.
+| Component | Dataset / Scope | Result |
+|---|---:|---:|
+| Canonical KR&R engine | 30 curated product cases | 30/30 correct, 100.0% accuracy |
+| Local ML fallback | 36 holdout ingredient cases | 36/36 correct, 100.0% accuracy |
+| Flask backend tests | Rules, certifiers, OCR fallback, API fallback, history, verdict regressions | 14/14 passing |
+| Vercel API smoke tests | Health, rules, analyze verdicts, OCR fallback, history | Passing |
+| TypeScript check | Frontend/serverless compile check | Passing |
+
+## KR&R Evaluation
+
+The KR&R evaluation uses the canonical backend knowledge base from `backend/data/halal_rules.json`, not the older small frontend keyword list. The dataset contains 30 products: 10 halal, 10 haram, and 10 mashbooh/requires-review cases.
+
+| Class | Precision | Recall | F1 | Support |
+|---|---:|---:|---:|---:|
+| HALAL | 1.000 | 1.000 | 1.000 | 10 |
+| HARAM | 1.000 | 1.000 | 1.000 | 10 |
+| MASHBOOH | 1.000 | 1.000 | 1.000 | 10 |
+| Macro average | 1.000 | 1.000 | 1.000 | 30 |
+| Weighted average | 1.000 | 1.000 | 1.000 | 30 |
+
+Confusion matrix:
+
+| Actual \\ Predicted | HALAL | HARAM | MASHBOOH |
+|---|---:|---:|---:|
+| HALAL | 10 | 0 | 0 |
+| HARAM | 0 | 10 | 0 |
+| MASHBOOH | 0 | 0 | 10 |
+
+Regression checks include missing ingredient text, exact E-number matching (`E-120` vs `E1200`), OCR-style Unicode hyphen normalization, pork derivatives, porcine gelatin, swine extract, bovine gelatin, animal shortening, and pork flavor overrides.
+
+## Local ML Fallback Evaluation
+
+RapidAPI Halal Food Checker is the primary ML classification layer in the submitted architecture. The local TF-IDF weighted Multinomial Naive Bayes model is retained only as a fallback and comparison artifact when live API access is unavailable.
+
+Metadata:
+
+| Field | Value |
+|---|---:|
+| Algorithm | TF-IDF weighted Multinomial Naive Bayes |
+| Training samples | 58 |
+| Vocabulary size | 508 |
+| Feature types | Unigram, bigram, trigram |
+
+Holdout metrics:
+
+| Class | Precision | Recall | F1 | Support |
+|---|---:|---:|---:|---:|
+| HALAL | 1.000 | 1.000 | 1.000 | 10 |
+| HARAM | 1.000 | 1.000 | 1.000 | 13 |
+| MASHBOOH | 1.000 | 1.000 | 1.000 | 13 |
+| Macro average | 1.000 | 1.000 | 1.000 | 36 |
+
+Confusion matrix:
+
+| Actual \\ Predicted | HALAL | HARAM | MASHBOOH |
+|---|---:|---:|---:|
+| HALAL | 10 | 0 | 0 |
+| HARAM | 0 | 13 | 0 |
+| MASHBOOH | 0 | 0 | 13 |
+
+## Backend and API Validation
 
 Run:
 
 ```bash
-npm run test:backend
-```
-
-## Existing Local Model Evaluation
-
-The previous local evaluation remains available for coursework evidence and fallback validation:
-
-```bash
+npm run lint
 npm run evaluate
+npm run test:backend
+npm run test:vercel-api
+npm run build
 ```
 
-It reports the local Naive Bayes fallback metadata, holdout results, KR&R dataset results, and edge-case regression checks. This is no longer the primary DOCX architecture; it is retained as a fallback and comparison layer.
+Backend tests validate:
+
+- Knowledge base contains at least 50 rules and recognized bodies: JAKIM, MUI, IFANCA, HFA, ESMA.
+- Every rule has required schema fields, a reason, and a source citation label.
+- `E120`/carmine produces `NON-COMPLIANT`.
+- `E1200` does not falsely trigger the `E120` rule.
+- OCR-style Unicode hyphen E-numbers normalize correctly.
+- Pork derivatives and alcohol force `NON-COMPLIANT`.
+- Gelatin/natural flavors produce `REQUIRES REVIEW`.
+- Missing or unrecognized certifying bodies produce `REQUIRES REVIEW`.
+- Clean ingredients with recognized certification produce `HALAL COMPLIANT`.
+- Google Vision and RapidAPI no-credential paths stay deterministic.
+- SQLite history persists scan results.
 
 ## Live API Validation
 
-Live Google Vision and RapidAPI validation requires:
+Optional live validation requires:
 
 ```text
 GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account.json
 RAPIDAPI_KEY=your_key
 ```
 
-When those variables are absent, tests remain deterministic and the app falls back or marks unresolved inputs for review.
-
-## Vercel Serverless Validation
-
-Run:
-
-```bash
-npm run test:vercel-api
-```
-
-This directly invokes the Vercel route handlers and verifies:
-
-- `/api/health` exposes rule/API configuration.
-- `/api/rules` returns at least 50 rules.
-- `/api/analyze` returns all three proposal verdicts.
-- `/api/ocr` returns a clean Google Vision unavailable response when credentials are absent.
-- `/api/history` responds in the serverless adapter.
+Without these credentials, HalalScan still evaluates the knowledge base, marks live API status as unavailable, and keeps tests deterministic for classroom grading.

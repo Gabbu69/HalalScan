@@ -25,6 +25,22 @@ def test_rules_endpoint_exposes_docx_scale_knowledge_base(tmp_path, monkeypatch)
     assert {body["name"] for body in data["certifying_bodies"]} >= {"JAKIM", "MUI", "IFANCA", "HFA", "ESMA"}
 
 
+def test_rule_records_have_required_schema_and_sources(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    response = client.get("/api/rules")
+    data = response.get_json()
+
+    for rule in data["rules"]:
+        assert rule["id"]
+        assert rule["category"]
+        assert rule["status"] in {"HARAM", "DOUBTFUL", "UNKNOWN", "HALAL", "INFO"}
+        assert isinstance(rule["keywords"], list)
+        assert isinstance(rule["e_numbers"], list)
+        assert rule["keywords"] or rule["e_numbers"]
+        assert rule["reason"]
+        assert rule["source"]
+
+
 def test_haram_rule_overrides_certification(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
     response = client.post(
@@ -40,6 +56,62 @@ def test_haram_rule_overrides_certification(tmp_path, monkeypatch):
     assert data["final_verdict"] == "NON-COMPLIANT"
     assert "R001" in data["triggered_rules"]
     assert "E120" in data["flagged_ingredients"]
+    assert data["architectureDetails"]["krrAnalysis"]["conflictResolution"]["priority"] == [
+        "HARAM",
+        "DOUBTFUL",
+        "UNKNOWN",
+        "HALAL",
+    ]
+    assert data["architectureDetails"]["krrAnalysis"]["facts"]
+    assert data["architectureDetails"]["krrAnalysis"]["matchedRules"]
+
+
+def test_exact_e_number_matching_does_not_flag_longer_codes(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    response = client.post(
+        "/api/analyze",
+        json={
+            "productName": "Numbered Additive Sample",
+            "ingredients": "water, sugar, E1200",
+            "certifyingBody": "JAKIM",
+        },
+    )
+    data = response.get_json()
+    assert response.status_code == 200
+    assert data["final_verdict"] != "NON-COMPLIANT"
+    assert "R001" not in data["triggered_rules"]
+
+
+def test_ocr_unicode_hyphen_e_number_is_normalized(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    response = client.post(
+        "/api/analyze",
+        json={
+            "productName": "Red Candy",
+            "ingredients": "water, sugar, E\u2011120",
+            "certifyingBody": "JAKIM",
+        },
+    )
+    data = response.get_json()
+    assert response.status_code == 200
+    assert data["final_verdict"] == "NON-COMPLIANT"
+    assert "R001" in data["triggered_rules"]
+
+
+def test_pork_derivative_and_alcohol_regressions(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    response = client.post(
+        "/api/analyze",
+        json={
+            "productName": "Dessert Capsule",
+            "ingredients": "sugar, porcine gelatin, rum",
+            "certifyingBody": "JAKIM",
+        },
+    )
+    data = response.get_json()
+    assert response.status_code == 200
+    assert data["final_verdict"] == "NON-COMPLIANT"
+    assert {"R003", "R034"} <= set(data["triggered_rules"])
 
 
 def test_halal_requires_recognized_certifying_body(tmp_path, monkeypatch):
@@ -103,6 +175,25 @@ def test_doubtful_ingredients_require_review(tmp_path, monkeypatch):
     assert "R002" in data["triggered_rules"]
 
 
+def test_rapidapi_no_credentials_is_explicit_but_deterministic(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    response = client.post(
+        "/api/analyze",
+        json={
+            "productName": "Rice Crackers",
+            "ingredients": "rice, sunflower oil, sea salt",
+            "certifyingBody": "IFANCA",
+        },
+    )
+    data = response.get_json()
+    assert response.status_code == 200
+    assert data["final_verdict"] == "HALAL COMPLIANT"
+    assert {row["api_status"] for row in data["ingredient_results"]} == {"UNAVAILABLE"}
+    assert "No-credential runs remain deterministic" in " ".join(
+        data["architectureDetails"]["krrAnalysis"]["evaluationNotes"]
+    )
+
+
 def test_no_ingredients_requires_review(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
     response = client.post(
@@ -147,4 +238,3 @@ def test_history_persists_scan_results(tmp_path, monkeypatch):
     assert response.status_code == 200
     assert len(data["history"]) == 1
     assert data["history"][0]["final_verdict"] == "HALAL COMPLIANT"
-

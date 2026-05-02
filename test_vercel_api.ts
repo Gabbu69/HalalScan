@@ -44,6 +44,14 @@ console.log('health:', {
 const rules = await invoke(rulesHandler, { method: 'GET' });
 expectOk('rules', rules);
 if (rules.body.rules.length < 50) throw new Error('Expected at least 50 backend rules.');
+for (const rule of rules.body.rules) {
+  if (!rule.id || !rule.category || !rule.status || !rule.reason || !rule.source) {
+    throw new Error(`Rule is missing required schema fields: ${JSON.stringify(rule)}`);
+  }
+  if (!rule.keywords?.length && !rule.e_numbers?.length) {
+    throw new Error(`Rule has no keyword or E-number trigger: ${rule.id}`);
+  }
+}
 console.log('rules:', rules.body.rules.length);
 
 const compliant = await invoke(analyzeHandler, {
@@ -64,13 +72,19 @@ const nonCompliant = await invoke(analyzeHandler, {
   method: 'POST',
   body: {
     productName: 'Red Cake',
-    ingredients: 'sugar, flour, E120, vanilla',
+    ingredients: 'sugar, flour, E\u2011120, vanilla',
     certifyingBody: 'JAKIM',
   },
 });
 expectOk('non-compliant analyze', nonCompliant);
 if (nonCompliant.body.final_verdict !== 'NON-COMPLIANT') {
   throw new Error(`Expected NON-COMPLIANT, got ${nonCompliant.body.final_verdict}`);
+}
+if (!nonCompliant.body.architectureDetails?.krrAnalysis?.facts?.length) {
+  throw new Error('Expected explainable fact trace in non-compliant response.');
+}
+if (!nonCompliant.body.architectureDetails?.krrAnalysis?.conflictResolution?.priority?.includes('HARAM')) {
+  throw new Error('Expected conflict-resolution priority evidence.');
 }
 console.log('non-compliant:', nonCompliant.body.final_verdict, nonCompliant.body.triggered_rules);
 
@@ -106,4 +120,3 @@ const history = await invoke(historyHandler, { method: 'GET' });
 expectOk('history', history);
 if (history.body.history.length < 3) throw new Error('Expected serverless history to contain analyze results.');
 console.log('history:', history.body.history.length);
-

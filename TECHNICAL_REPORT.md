@@ -1,64 +1,68 @@
-# Technical Report: HalalScan DOCX-Compliant Architecture
+# Technical Report: HalalScan
 
-## 1. System Architecture
+HalalScan follows the submitted proposal: React frontend, Flask backend, Google Vision OCR, RapidAPI Halal Food Checker, Open Food Facts barcode lookup, a canonical 60-rule knowledge base, deterministic reasoning, and SQLite history/cache storage.
 
-HalalScan now uses the architecture specified in the proposal document:
+## Architecture
 
-1. **React frontend** for barcode scanning, label upload, OCR review, certifying-body input, results, rules, and history.
-2. **Python Flask backend** as the primary `/api` service.
-3. **Vercel TypeScript serverless adapter** with matching API behavior for deployed builds.
-4. **Google Vision OCR** for product label images and first 5 PDF pages.
-5. **RapidAPI Halal Food Checker** as the primary per-ingredient ML classification layer.
-6. **Knowledge-Based Reasoning (KBR)** over a structured 60-rule halal knowledge base.
-7. **SQLite storage** for local Flask scan history and cached RapidAPI ingredient classifications.
+```mermaid
+flowchart LR
+  U[Image/PDF/Text/Barcode] --> FE[React Frontend]
+  FE --> OCR[/POST /api/ocr/]
+  FE --> AN[/POST /api/analyze/]
+  OCR --> GV[Google Vision]
+  AN --> OFF[Open Food Facts]
+  AN --> ML[RapidAPI Halal Food Checker]
+  AN --> KB[60-rule Canonical KB]
+  ML --> RE[Reasoning Engine]
+  KB --> RE
+  RE --> DB[(SQLite)]
+  RE --> FE
+```
 
-The previous Gemini/Tesseract/local Naive Bayes components remain available only as fallback support when the Flask backend or live credentials are unavailable.
+Legacy Gemini, Tesseract, and local Naive Bayes paths are retained only as fallback support. The primary architecture is Google Vision + RapidAPI + Knowledge-Based Reasoning.
 
-## 2. Data Flow
+## Verdict Logic
 
-User input follows this path:
+```mermaid
+flowchart TD
+  A[Ingredient facts] --> B[KB rule matches]
+  A --> C[RapidAPI classification]
+  B --> D[Priority resolver]
+  C --> D
+  D -->|Any HARAM| N[NON-COMPLIANT]
+  D -->|Any DOUBTFUL/UNKNOWN or missing certifier| R[REQUIRES REVIEW]
+  D -->|All clear + recognized certifier| H[HALAL COMPLIANT]
+```
 
-`Image/PDF/Text/Barcode -> Google Vision or OpenFoodFacts -> RapidAPI Ingredient Classifier -> Knowledge Base Lookup -> Reasoning Engine -> Verdict -> SQLite History -> React Results`
+Conflict priority is `HARAM > DOUBTFUL > UNKNOWN > HALAL`. The API response exposes the logic path, matched rules, facts, conflict resolution, certification check, and evaluation notes under `architectureDetails.krrAnalysis`.
 
-The scanner accepts ingredient photos, PDFs, manual text, and barcodes. For image/PDF inputs, the frontend calls `POST /api/ocr`, shows editable extracted text, then submits the reviewed text to `POST /api/analyze`.
+## Knowledge Base
 
-On Vercel, `api/*.ts` implements the same public routes. Serverless functions cannot persist SQLite on the platform, so Vercel scan history is maintained by frontend localStorage, while `/api/history` returns the current serverless-memory view.
+`backend/data/halal_rules.json` is the source of truth. It contains 60 structured rules, E-number mappings, keyword triggers, reasons, source labels, and recognized certifying-body records for JAKIM, MUI, IFANCA, HFA, and ESMA.
 
-## 3. Verdict Logic
+## Evaluation
 
-The backend returns proposal-aligned verdict labels:
+| Check | Result |
+|---|---:|
+| Canonical KR&R dataset | 30/30 correct |
+| Local ML fallback holdout | 36/36 correct |
+| Backend tests | 14/14 passing |
+| TypeScript check | Passing |
+| Vercel API smoke tests | Passing |
 
-- `NON-COMPLIANT`: at least one ingredient is haram by RapidAPI or knowledge-base rule.
-- `HALAL COMPLIANT`: all ingredients are clear and the certifying body is recognized.
-- `REQUIRES REVIEW`: any ingredient is doubtful/unknown, or the certifying body is missing/unrecognized.
+Run:
 
-Recognized certifying bodies are JAKIM, MUI, IFANCA, HFA, and ESMA. The system does not claim to verify official certificate authenticity; it checks whether the named body is in the maintained trusted list.
+```bash
+npm run lint
+npm run evaluate
+npm run test:backend
+npm run test:vercel-api
+npm run build
+```
 
-## 4. Knowledge Base
+## Limitations
 
-The backend knowledge base is stored in `backend/data/halal_rules.json` and contains:
-
-- Haram additive rules such as E120, E542, E904, and E920.
-- Doubtful additive rules such as E441, E471-E477, E481-E483, E422, E470, and E570.
-- Pork, blood, alcohol, animal enzyme, dairy, meat, seafood, plant, processing, and certification rules.
-- Rule IDs, categories, statuses, reasons, keywords, E-number mappings, and sources.
-
-The reasoning engine records a logic path and triggered rule IDs for explainability.
-
-## 5. Evaluation
-
-Implemented checks:
-
-- `npm run lint`: TypeScript type checking.
-- `npm run evaluate`: existing local ML/KR&R coursework evaluation.
-- `npm run test:backend`: Flask tests covering rules, certification, OCR no-credential fallback, history, and verdict logic.
-- `npm run test:vercel-api`: direct tests for Vercel serverless health, rules, OCR fallback, and the three verdict outcomes.
-
-Backend tests use no live keys, so they are reproducible in a classroom environment. Live Google Vision and RapidAPI behavior can be smoke-tested after setting `GOOGLE_APPLICATION_CREDENTIALS` and `RAPIDAPI_KEY`.
-
-## 6. Limitations
-
-- Live OCR and RapidAPI classification require external credentials.
-- Certifying-body verification is list-based, not an official certificate database lookup.
-- The knowledge base is maintainable but still needs expert review for production use.
-- Non-English labels may require OCR support plus translation before reliable ingredient reasoning.
+- Live OCR and RapidAPI classification require credentials.
+- Certifying-body verification is list-based and does not authenticate official certificates.
+- Non-English labels may require translation.
+- Knowledge-base rules need expert review before production use.

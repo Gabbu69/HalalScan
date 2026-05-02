@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { HALAL_RULES, HalalRule } from '../constants/halalRules';
+import { CANONICAL_RULES } from '../utils/canonicalKnowledgeBase';
 import { Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useTranslation } from '../hooks/useTranslation';
@@ -8,7 +9,15 @@ export function Knowledge() {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [rules, setRules] = useState<HalalRule[]>(HALAL_RULES);
+  const [rules, setRules] = useState<HalalRule[]>(() =>
+    CANONICAL_RULES.map(rule => ({
+      id: rule.id,
+      category: rule.category,
+      title: `${rule.title} (${rule.status})`,
+      content: `${rule.reason}${rule.e_numbers?.length ? ` E-numbers: ${rule.e_numbers.join(', ')}.` : ''}${rule.keywords?.length ? ` Keywords: ${rule.keywords.slice(0, 8).join(', ')}.` : ''}`,
+      source: rule.source
+    }))
+  );
 
   useEffect(() => {
     const loadBackendRules = async () => {
@@ -25,12 +34,13 @@ export function Knowledge() {
         }));
         if (backendRules.length > 0) setRules(backendRules);
       } catch {
-        // Keep bundled frontend rules when Flask is not running.
+        // Keep bundled canonical JSON rules when Flask is not running.
+        if (rules.length === 0) setRules(HALAL_RULES);
       }
     };
 
     loadBackendRules();
-  }, []);
+  }, [rules.length]);
 
   const filteredRules = rules.filter(rule => {
     const title = t(`knowledge.rule_${rule.id}_title`) || rule.title;
@@ -57,9 +67,9 @@ export function Knowledge() {
       <div className="flex-1 overflow-y-auto px-5 pb-20 w-full space-y-3">
         {filteredRules.map(item => {
           let borderClass = 'border-gray-300 dark:border-gray-600';
-          if (item.category === 'Ingredients' && item.title.includes('HARAM')) borderClass = 'border-[#D32F2F]';
-          if (item.category === 'Ingredients' && item.title.includes('MASHBOOH')) borderClass = 'border-amber-500';
-          if (item.category === 'Ingredients' && item.title.includes('ALWAYS HALAL')) borderClass = 'border-green-500';
+          if (item.title.includes('(HARAM)')) borderClass = 'border-[#D32F2F]';
+          if (item.title.includes('(DOUBTFUL)')) borderClass = 'border-amber-500';
+          if (item.title.includes('(HALAL)')) borderClass = 'border-green-500';
 
           return (
             <div key={item.id} className={`bg-white dark:bg-[#1a2e22] rounded-xl overflow-hidden shadow-sm transition-all duration-200 border border-gray-100 dark:border-gray-800 border-l-4 rtl:border-l-0 rtl:border-r-4 ${borderClass}`}>
