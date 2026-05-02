@@ -3,8 +3,9 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { runIntegratedAnalysis, runIntegratedBarcodeAnalysis, runIntegratedImageAnalysis } from '../utils/systemIntegration';
 import { useAppStore, ScanRecord } from '../store/useAppStore';
 import { Badge } from '../components/Badge';
-import { ScanSearch, ArrowLeft, Cpu, Database, Network, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { ScanSearch, ArrowLeft, Cpu, Database, Network, ChevronDown, ChevronUp, AlertTriangle, Brain, ListChecks } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
+import { CANONICAL_RULES } from '../utils/canonicalKnowledgeBase';
 
 export function Analysis() {
   const [searchParams] = useSearchParams();
@@ -240,6 +241,15 @@ export function Analysis() {
     : result.verdict === 'HARAM' || result.verdict === 'NON-COMPLIANT'
     ? 'text-red-600 dark:text-red-400' 
     : 'text-amber-600 dark:text-amber-400';
+  const architecture = result.architectureDetails;
+  const krrAnalysis = architecture?.krrAnalysis || {};
+  const mlAnalysis = architecture?.mlAnalysis || {};
+  const logicPath = Array.isArray(krrAnalysis.logicPath) ? krrAnalysis.logicPath : [];
+  const integrationLogic = Array.isArray(architecture?.integrationLogic) ? architecture.integrationLogic : [];
+  const matchedRules = Array.isArray(krrAnalysis.matchedRules) ? krrAnalysis.matchedRules : [];
+  const triggeredRules = result.triggered_rules || [];
+  const certStatus = result.certification?.status || krrAnalysis.certificationCheck?.status || 'NOT PROVIDED';
+  const inputMode = type === 'image' ? 'Image/OCR scan' : type === 'text' ? 'Manual ingredient text' : 'Barcode lookup';
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F9F5F0] dark:bg-[var(--color-dark-bg)] p-5 w-full font-nunito text-[#1a1a1a]">
@@ -330,7 +340,7 @@ export function Analysis() {
         )}
         
         {/* Architecture Logs (Fulfills Project Rubric) */}
-        {result.architectureDetails && (
+        {architecture && (
           <div className="bg-white dark:bg-[#1a2e22] rounded-2xl p-1 mb-4 shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
              <button 
                 onClick={() => setShowArch(!showArch)}
@@ -338,7 +348,7 @@ export function Analysis() {
               >
                 <div className="flex items-center gap-2">
                   <Cpu size={14} className="text-indigo-500" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">System Architecture Logs</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">Rubric Evidence Logs</span>
                 </div>
                 {showArch ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
              </button>
@@ -346,34 +356,62 @@ export function Analysis() {
              {showArch && (
                <div className="p-4 border-t border-gray-100 dark:border-gray-800 space-y-4">
                   <div>
-                    <h4 className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-[#1B6B3A] dark:text-green-400 mb-2">
-                      <Database size={12} /> Knowledge Base & KR&R Engine
+                    <h4 className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-2">
+                      <Brain size={12} /> ML Implementation
                     </h4>
-                    <div className="bg-gray-50 dark:bg-[#0f1a13] rounded p-2 border border-gray-100 dark:border-gray-800 font-mono text-[8px] text-gray-600 dark:text-gray-400 overflow-x-auto">
-                      <div className="font-bold mb-1 text-gray-800 dark:text-gray-300">Rule-based Status -&gt; {result.architectureDetails.krrAnalysis.status}</div>
-                      {result.architectureDetails.krrAnalysis.logicPath.map((log: string, idx: number) => (
-                        <div key={idx}>[{idx+1}] {log}</div>
+                    <div className="bg-blue-50 dark:bg-blue-900/10 rounded p-2 border border-blue-100 dark:border-blue-900/30 font-mono text-[8px] text-blue-800 dark:text-blue-300 space-y-1 overflow-x-auto">
+                      <div>Primary classifier: {mlAnalysis.provider || 'Halal Food Checker via RapidAPI'}</div>
+                      <div>Fallback model: TF-IDF weighted Multinomial Naive Bayes</div>
+                      <div>Generated verdict: {mlAnalysis.verdict || result.verdict || 'N/A'}</div>
+                      <div>Product confidence: {result.confidence}%</div>
+                      <div>Ingredient classifications: {result.ingredient_results?.length || 0}</div>
+                      <div>Optional-key mode: live APIs when configured, deterministic fallback when unavailable</div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-[#1B6B3A] dark:text-green-400 mb-2">
+                      <Database size={12} /> Knowledge Base Design
+                    </h4>
+                    <div className="bg-gray-50 dark:bg-[#0f1a13] rounded p-2 border border-gray-100 dark:border-gray-800 font-mono text-[8px] text-gray-600 dark:text-gray-400 space-y-1 overflow-x-auto">
+                      <div>Canonical JSON rules: {CANONICAL_RULES.length}</div>
+                      <div>Triggered rule IDs: {triggeredRules.length ? triggeredRules.join(', ') : 'None'}</div>
+                      <div>Certifying body status: {certStatus}</div>
+                      {matchedRules.length > 0 ? (
+                        matchedRules.slice(0, 4).map((rule: any, idx: number) => (
+                          <div key={`${rule.id || 'rule'}-${idx}`}>
+                            Source [{rule.id || 'N/A'}]: {rule.source || 'Maintained halal rule source'}
+                          </div>
+                        ))
+                      ) : (
+                        <div>Matched rule sources: no explicit KB rule fired for this scan</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-2">
+                      <ListChecks size={12} /> Reasoning Engine
+                    </h4>
+                    <div className="bg-amber-50 dark:bg-amber-900/10 rounded p-2 border border-amber-100 dark:border-amber-900/30 font-mono text-[8px] text-amber-800 dark:text-amber-300 space-y-1 overflow-x-auto">
+                      <div className="font-bold">Priority: HARAM &gt; DOUBTFUL &gt; UNKNOWN &gt; HALAL</div>
+                      <div>Rule-based status: {krrAnalysis.status || 'N/A'}</div>
+                      <div>Selected verdict: {krrAnalysis.conflictResolution?.selectedVerdict || result.verdict}</div>
+                      {logicPath.map((log: string, idx: number) => (
+                        <div key={idx}>[{idx + 1}] {log}</div>
                       ))}
                     </div>
                   </div>
 
                   <div>
-                    <h4 className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-2">
-                      <Network size={12} /> ML API Classification (RapidAPI / Fallback)
-                    </h4>
-                     <div className="bg-gray-50 dark:bg-[#0f1a13] rounded p-2 border border-gray-100 dark:border-gray-800 font-mono text-[8px] text-gray-600 dark:text-gray-400">
-                      <div>Primary: Halal Food Checker via RapidAPI</div>
-                      <div>MimeType: application/json</div>
-                      <div>Verdict Generated: {result.architectureDetails.mlAnalysis?.verdict || result.verdict || 'N/A'}</div>
-                     </div>
-                  </div>
-
-                  <div>
                     <h4 className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-2">
-                      <Cpu size={12} /> System Integration / Consensus
+                      <Network size={12} /> System Integration
                     </h4>
                     <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded p-2 border border-indigo-100 dark:border-indigo-900/30 font-mono text-[8px] text-indigo-800 dark:text-indigo-300">
-                      {result.architectureDetails.integrationLogic.map((log: string, idx: number) => (
+                      <div className="mb-1">Input mode: {inputMode}</div>
+                      <div className="mb-1">Flow: OCR/barcode/text -&gt; /api/analyze -&gt; ML + KBD + RE -&gt; final verdict</div>
+                      <div className="mb-1">Final verdict: {result.verdict}</div>
+                      {integrationLogic.map((log: string, idx: number) => (
                         <div key={idx} className="mb-1">&gt; {log}</div>
                       ))}
                     </div>

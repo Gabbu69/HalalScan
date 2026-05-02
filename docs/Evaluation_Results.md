@@ -12,6 +12,17 @@ Verified locally on May 2, 2026. Live Google Vision and RapidAPI keys were not r
 | Vercel API smoke tests | Health, rules, analyze verdicts, OCR fallback, history | Passing |
 | TypeScript check | Frontend/serverless compile check | Passing |
 
+## Rubric Evidence in the App
+
+The Analysis result page exposes a **Rubric Evidence Logs** accordion with the four required implementation areas:
+
+- **ML Implementation:** shows the RapidAPI Halal Food Checker provider, local TF-IDF Naive Bayes fallback, generated verdict, confidence, and ingredient classification count.
+- **Knowledge Base Design:** shows the canonical 60-rule JSON knowledge base, triggered rule IDs, certifying-body status, and matched rule sources.
+- **Reasoning Engine:** shows the deterministic priority order `HARAM > DOUBTFUL > UNKNOWN > HALAL`, selected verdict, rule-based status, and inference logic path.
+- **System Integration:** shows the input mode, `/api/analyze` processing flow, final verdict, and integration trace across OCR/barcode/text, ML, KB, and reasoning layers.
+
+The Knowledge Base page also displays each rule's status as a separate visible badge, so backend-loaded rules no longer depend on status text being embedded in the title.
+
 ## KR&R Evaluation
 
 The KR&R evaluation uses the canonical backend knowledge base from `backend/data/halal_rules.json`, not the older small frontend keyword list. The dataset contains 30 products: 10 halal, 10 haram, and 10 mashbooh/requires-review cases.
