@@ -32,6 +32,8 @@ export type CanonicalRuleMatch = {
   title: string;
   reason: string;
   source: string;
+  matched_terms?: string[];
+  specificity?: number;
 };
 
 export type CanonicalIngredientResult = {
@@ -72,11 +74,77 @@ export const extractENumbers = (source: string) => {
   return new Set(matches || []);
 };
 
+const getRuleMatch = (rule: CanonicalRule, ingredient: string, eNumbers: Set<string>): CanonicalRuleMatch | null => {
+  const eNumberMatches = rule.e_numbers.filter(code => eNumbers.has(code.toUpperCase()));
+  const keywordMatches = rule.keywords.filter(keyword => containsTerm(ingredient, keyword));
+
+  if (eNumberMatches.length === 0 && keywordMatches.length === 0) return null;
+
+  const specificity = Math.max(
+    0,
+    ...eNumberMatches.map(code => normalizeEcodes(code).length + 100),
+    ...keywordMatches.map(keyword => normalizeEcodes(keyword).length)
+  );
+
+  return {
+    id: rule.id,
+    status: rule.status,
+    category: rule.category,
+    title: rule.title,
+    reason: rule.reason,
+    source: rule.source,
+    matched_terms: [...eNumberMatches, ...keywordMatches],
+    specificity,
+  };
+};
+
+const chooseStrongestMatch = (matches: CanonicalRuleMatch[]) => {
+  const compare = (a: CanonicalRuleMatch, b: CanonicalRuleMatch) => {
+    const priorityDelta = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
+    if (priorityDelta !== 0) return priorityDelta;
+    return (a.specificity || 0) - (b.specificity || 0);
+  };
+
+  const haramMatches = matches.filter(match => match.status === 'HARAM');
+  if (haramMatches.length > 0) {
+    return haramMatches.reduce((best, item) => (compare(item, best) > 0 ? item : best));
+  }
+
+  const bestHalal = matches
+    .filter(match => match.status === 'HALAL')
+    .reduce<CanonicalRuleMatch | null>((best, item) => (!best || compare(item, best) > 0 ? item : best), null);
+  const bestNonHalal = matches
+    .filter(match => !['HALAL', 'INFO'].includes(match.status))
+    .reduce<CanonicalRuleMatch | null>((best, item) => (!best || compare(item, best) > 0 ? item : best), null);
+
+  if (bestHalal && bestNonHalal && (bestHalal.specificity || 0) > (bestNonHalal.specificity || 0)) {
+    return bestHalal;
+  }
+
+  return matches.reduce((best, item) => (compare(item, best) > 0 ? item : best));
+};
+
 export const splitIngredients = (text: string) => {
   const clean = (text || '').replace(/\bingredients?\s*[:.-]\s*/i, '');
-  return clean
-    .split(/[,;\n]+/)
-    .map(part => part.replace(/\s+/g, ' ').replace(/^[ .:-]+|[ .:-]+$/g, ''))
+  const parts: string[] = [];
+  let current = '';
+  let depth = 0;
+
+  for (const char of clean) {
+    if ('([{'.includes(char)) depth += 1;
+    if (')]}'.includes(char) && depth > 0) depth -= 1;
+
+    if ((char === ',' || char === ';' || char === '\n') && depth === 0) {
+      parts.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  parts.push(current);
+
+  return parts
+    .map(part => part.replace(/\s+/g, ' ').replace(/^[\s.,:;\-]+|[\s.,:;\-]+$/g, ''))
     .filter(item => item.length >= 2);
 };
 
@@ -85,19 +153,8 @@ export const evaluateIngredientAgainstCanonicalRules = (ingredient: string): Can
   const eNumbers = extractENumbers(ingredient);
 
   CANONICAL_RULES.forEach(rule => {
-    const eNumberMatch = rule.e_numbers.some(code => eNumbers.has(code.toUpperCase()));
-    const keywordMatch = rule.keywords.some(keyword => containsTerm(ingredient, keyword));
-
-    if (eNumberMatch || keywordMatch) {
-      matched.push({
-        id: rule.id,
-        status: rule.status,
-        category: rule.category,
-        title: rule.title,
-        reason: rule.reason,
-        source: rule.source,
-      });
-    }
+    const ruleMatch = getRuleMatch(rule, ingredient, eNumbers);
+    if (ruleMatch) matched.push(ruleMatch);
   });
 
   if (matched.length === 0) {
@@ -109,9 +166,7 @@ export const evaluateIngredientAgainstCanonicalRules = (ingredient: string): Can
     };
   }
 
-  const strongest = matched.reduce((best, item) =>
-    STATUS_PRIORITY[item.status] > STATUS_PRIORITY[best.status] ? item : best
-  );
+  const strongest = chooseStrongestMatch(matched);
 
   return {
     ingredient,

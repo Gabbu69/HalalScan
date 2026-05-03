@@ -398,7 +398,7 @@
       "title": "Natural Flavors",
       "status": "DOUBTFUL",
       "e_numbers": [],
-      "keywords": ["natural flavors", "natural flavour", "natural flavoring", "natural flavouring"],
+      "keywords": ["natural flavors", "natural flavor", "natural flavour", "natural flavoring", "natural flavouring", "natural vanilla flavor", "natural vanilla flavour", "natural vanilla flavoring", "natural vanilla flavouring", "vanilla flavoring", "vanilla flavouring", "natural smoke flavor", "natural smoke flavour", "smoke flavor", "smoke flavour"],
       "reason": "Natural flavors can include animal-derived or alcohol-based carriers and require source verification.",
       "source": "IFANCA ingredient guidance"
     },
@@ -408,7 +408,7 @@
       "title": "Artificial Flavors",
       "status": "DOUBTFUL",
       "e_numbers": [],
-      "keywords": ["artificial flavors", "artificial flavor", "artificial flavour"],
+      "keywords": ["artificial flavors", "artificial flavor", "artificial flavour", "artificial flavoring", "artificial flavouring", "artificial colors", "artificial color", "artificial colours", "artificial colour"],
       "reason": "Artificial flavors can use doubtful carriers and should be verified when source is unspecified.",
       "source": "Food science ingredient guidance"
     },
@@ -428,7 +428,7 @@
       "title": "Cheese Cultures and Enzymes",
       "status": "DOUBTFUL",
       "e_numbers": [],
-      "keywords": ["cheese enzymes", "cheddar cheese", "mozzarella cheese", "processed cheese"],
+      "keywords": ["cheese", "cheese culture", "cheese cultures", "cheese enzymes", "cheddar cheese", "mozzarella cheese", "processed cheese", "mascarpone cheese", "cream cheese"],
       "reason": "Cheese products require verification of rennet and enzyme sources.",
       "source": "JAKIM dairy protocol"
     },
@@ -478,7 +478,7 @@
       "title": "Plant Oils",
       "status": "HALAL",
       "e_numbers": [],
-      "keywords": ["sunflower oil", "olive oil", "soybean oil", "corn oil", "canola oil", "palm oil", "coconut oil"],
+      "keywords": ["vegetable oil", "vegetable fat", "sunflower oil", "olive oil", "extra virgin olive oil", "soybean oil", "corn oil", "canola oil", "rapeseed oil", "palm oil", "palm olein", "coconut oil", "peanut oil", "sesame oil", "rice bran oil", "avocado oil", "cottonseed oil"],
       "reason": "Plant oils are treated as compliant unless contaminated or mixed with animal-derived material.",
       "source": "JAKIM general halal standards"
     },
@@ -488,7 +488,7 @@
       "title": "Grains and Starches",
       "status": "HALAL",
       "e_numbers": [],
-      "keywords": ["wheat flour", "rice", "corn starch", "modified corn starch", "oats", "barley", "tapioca starch"],
+      "keywords": ["flour", "enriched flour", "wheat flour", "whole wheat flour", "rice", "whole grain rice", "brown rice", "white rice", "rice flour", "corn starch", "modified corn starch", "modified starch", "corn flour", "cornmeal", "maize", "oats", "rolled oats", "barley", "tapioca starch", "potato starch", "semolina", "rye flour"],
       "reason": "Plant-derived grains and starches are treated as compliant.",
       "source": "JAKIM general halal standards"
     },
@@ -498,7 +498,7 @@
       "title": "Water, Sugars and Salts",
       "status": "HALAL",
       "e_numbers": [],
-      "keywords": ["water", "sugar", "cane sugar", "glucose syrup", "salt", "sea salt"],
+      "keywords": ["water", "sugar", "cane sugar", "brown sugar", "powdered sugar", "glucose syrup", "fructose", "dextrose", "sucrose", "maltodextrin", "corn syrup", "invert sugar", "golden syrup", "honey", "salt", "sea salt", "sodium chloride"],
       "reason": "Water, basic sugars, and salts are treated as compliant.",
       "source": "JAKIM general halal standards"
     },
@@ -631,6 +631,76 @@
       "keywords": ["gelatin capsule", "softgel", "soft gel"],
       "reason": "Capsule gelatin is source-dependent and requires halal certification.",
       "source": "IFANCA pharmaceutical ingredient guidance"
+    },
+    {
+      "id": "R061",
+      "category": "Plant",
+      "title": "Fruits, Vegetables, Nuts and Seeds",
+      "status": "HALAL",
+      "e_numbers": [],
+      "keywords": ["potato", "potatoes", "chickpeas", "peanuts", "roasted peanuts", "almonds", "beans", "tomato sauce", "tomato paste", "tomatoes", "onion", "onions", "garlic", "green tea", "tea leaves", "orange juice", "lemon juice", "strawberries", "cocoa", "cocoa powder", "cocoa butter", "cocoa mass", "espresso", "coffee", "black pepper", "spices"],
+      "reason": "Plain plant foods, nuts, seeds, herbs, and spices are treated as compliant unless mixed with haram-derived additives.",
+      "source": "JAKIM general halal standards"
+    },
+    {
+      "id": "R062",
+      "category": "Additives",
+      "title": "Yeast, Leavening and Mineral Additives",
+      "status": "HALAL",
+      "e_numbers": [],
+      "keywords": ["yeast", "baking soda", "baking powder", "sodium bicarbonate", "sodium carbonate", "calcium sulfate", "calcium sulphate", "calcium chloride", "calcium carbonate", "sodium phosphate", "sodium citrate", "potassium citrate", "monocalcium phosphate", "cream of tartar", "iron", "vitamin a"],
+      "reason": "Common leavening agents, minerals, and listed fortification ingredients are treated as compliant when not animal-derived.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R063",
+      "category": "Dairy",
+      "title": "Milk and Eggs",
+      "status": "HALAL",
+      "e_numbers": [],
+      "keywords": ["milk", "cream", "butter", "buttermilk", "egg", "eggs", "egg yolk", "egg yolks", "egg white", "egg whites", "milkfat"],
+      "reason": "Plain milk, cream, butter, and eggs are treated as compliant unless combined with doubtful enzymes, rennet, alcohol, or haram material.",
+      "source": "JAKIM general halal standards"
+    },
+    {
+      "id": "R064",
+      "category": "Additives",
+      "title": "Plant Lecithin",
+      "status": "HALAL",
+      "e_numbers": [],
+      "keywords": ["soy lecithin", "sunflower lecithin"],
+      "reason": "Soy and sunflower lecithin identify a plant source and are treated as compliant.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R065",
+      "category": "Additives",
+      "title": "Unspecified Lecithin",
+      "status": "DOUBTFUL",
+      "e_numbers": [],
+      "keywords": ["lecithin"],
+      "reason": "Lecithin is source-dependent unless a plant source such as soy or sunflower is declared.",
+      "source": "Food additive halal classification references"
+    },
+    {
+      "id": "R066",
+      "category": "Animal Source",
+      "title": "Source-Resolved Gelatin, Enzymes and Rennet",
+      "status": "HALAL",
+      "e_numbers": [],
+      "keywords": ["fish gelatin", "halal beef gelatin", "halal bovine gelatin", "halal-certified gelatin", "halal certified gelatin", "vegetable gelatin", "microbial enzyme", "microbial enzymes", "plant enzyme", "plant enzymes", "microbial rennet", "vegetarian rennet", "plant rennet", "microbial lipase"],
+      "reason": "Declared fish, plant, microbial, or halal-certified sources resolve the usual animal-source concern.",
+      "source": "IFANCA ingredient guidance"
+    },
+    {
+      "id": "R067",
+      "category": "Additives",
+      "title": "Source-Resolved Glycerin and Stearates",
+      "status": "HALAL",
+      "e_numbers": [],
+      "keywords": ["vegetable glycerin", "vegetable glycerine", "vegetable glycerol", "plant glycerin", "plant glycerine", "synthetic glycerin", "synthetic glycerine", "vegetable magnesium stearate", "vegetable calcium stearate", "plant-derived magnesium stearate", "plant derived magnesium stearate", "plant-derived calcium stearate", "plant derived calcium stearate"],
+      "reason": "Declared vegetable, plant-derived, or synthetic sources resolve the usual fatty-acid source concern.",
+      "source": "IFANCA ingredient guidance"
     }
   ]
 }

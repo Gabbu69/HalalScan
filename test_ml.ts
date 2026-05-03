@@ -2,6 +2,7 @@ import { scoreIngredients, getModelMetadata } from './src/utils/mlModel';
 import { evaluateModel } from './src/utils/modelEvaluation';
 import { evaluateKRREngine } from './src/utils/evaluateModel';
 import { runRuleBasedInference, type InferenceResult } from './src/utils/reasoningEngine';
+import { evaluateIngredientAgainstCanonicalRules, splitIngredients, type CanonicalRuleStatus } from './src/utils/canonicalKnowledgeBase';
 
 console.log('--- Local ML Fallback Metadata ---');
 console.log(JSON.stringify(getModelMetadata(), null, 2));
@@ -70,6 +71,14 @@ const assertMlVerdict = (input: string, expected: ReturnType<typeof scoreIngredi
   }
 };
 
+const assertCanonicalStatus = (input: string, expected: CanonicalRuleStatus) => {
+  const result = evaluateIngredientAgainstCanonicalRules(input);
+  console.log(input, '=>', result.status);
+  if (result.status !== expected) {
+    throw new Error(`Expected canonical KB ${expected} for "${input}", got ${result.status}.`);
+  }
+};
+
 assertKrrStatus('No ingredients listed.', 'MASHBOOH');
 assertKrrStatus('pig fat', 'HARAM');
 assertKrrStatus('porcine gelatin', 'HARAM');
@@ -85,3 +94,18 @@ assertMlVerdict('porcine gelatin capsule', 'HARAM');
 assertMlVerdict('swine extract flavor base', 'HARAM');
 assertMlVerdict('beef gelatin source not certified', 'MASHBOOH');
 assertMlVerdict('animal shortening animal fat source unknown', 'MASHBOOH');
+
+const parentheticalIngredients = splitIngredients('potatoes, vegetable oil (sunflower, corn), salt');
+console.log('parenthetical split:', parentheticalIngredients);
+if (parentheticalIngredients.length !== 3 || parentheticalIngredients[1] !== 'vegetable oil (sunflower, corn)') {
+  throw new Error(`Expected parenthetical ingredient commas to stay grouped: ${JSON.stringify(parentheticalIngredients)}`);
+}
+
+assertCanonicalStatus('yeast', 'HALAL');
+assertCanonicalStatus('calcium chloride', 'HALAL');
+assertCanonicalStatus('vegetable oil (sunflower, corn)', 'HALAL');
+assertCanonicalStatus('microbial rennet', 'HALAL');
+assertCanonicalStatus('soy lecithin', 'HALAL');
+assertCanonicalStatus('vegetable glycerin', 'HALAL');
+assertCanonicalStatus('fish gelatin', 'HALAL');
+assertCanonicalStatus('gelatin', 'DOUBTFUL');

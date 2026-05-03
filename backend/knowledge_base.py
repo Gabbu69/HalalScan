@@ -54,6 +54,68 @@ def extract_e_numbers(source: str) -> set[str]:
     return set(re.findall(r"\bE\d{3,4}[A-Z]?\b", normalized))
 
 
+def _get_rule_match(rule: dict[str, Any], ingredient: str, ingredient_ecodes: set[str]) -> dict[str, Any] | None:
+    e_number_matches = [
+        code
+        for code in rule.get("e_numbers", [])
+        if code.upper() in ingredient_ecodes
+    ]
+    keyword_matches = [
+        keyword
+        for keyword in rule.get("keywords", [])
+        if contains_term(ingredient, keyword)
+    ]
+
+    if not e_number_matches and not keyword_matches:
+        return None
+
+    specificity_values = [
+        *(len(normalize_ecodes(code)) + 100 for code in e_number_matches),
+        *(len(normalize_ecodes(keyword)) for keyword in keyword_matches),
+    ]
+
+    return {
+        "id": rule["id"],
+        "status": rule["status"],
+        "category": rule["category"],
+        "title": rule["title"],
+        "reason": rule["reason"],
+        "source": rule["source"],
+        "matched_terms": [*e_number_matches, *keyword_matches],
+        "specificity": max(specificity_values, default=0),
+    }
+
+
+def _choose_strongest_match(matches: list[dict[str, Any]]) -> dict[str, Any]:
+    def sort_key(match: dict[str, Any]) -> tuple[int, int]:
+        return (
+            STATUS_PRIORITY.get(match["status"], 0),
+            int(match.get("specificity", 0)),
+        )
+
+    haram_matches = [match for match in matches if match["status"] == "HARAM"]
+    if haram_matches:
+        return max(haram_matches, key=sort_key)
+
+    halal_matches = [match for match in matches if match["status"] == "HALAL"]
+    non_halal_matches = [
+        match
+        for match in matches
+        if match["status"] not in {"HALAL", "INFO"}
+    ]
+    best_halal = max(halal_matches, key=sort_key, default=None)
+    best_non_halal = max(non_halal_matches, key=sort_key, default=None)
+
+    if (
+        best_halal
+        and best_non_halal
+        and int(best_halal.get("specificity", 0)) > int(best_non_halal.get("specificity", 0))
+    ):
+        return best_halal
+
+    return max(matches, key=sort_key)
+
+
 def verify_certifying_body(value: str | None) -> dict[str, Any]:
     raw_value = (value or "").strip()
     if not raw_value:
@@ -91,20 +153,9 @@ def evaluate_ingredient_against_rules(ingredient: str) -> dict[str, Any]:
     ingredient_ecodes = extract_e_numbers(ingredient)
 
     for rule in load_rules():
-        matched_ecode = any(code.upper() in ingredient_ecodes for code in rule.get("e_numbers", []))
-        matched_keyword = any(contains_term(ingredient, keyword) for keyword in rule.get("keywords", []))
-
-        if matched_ecode or matched_keyword:
-            matched.append(
-                {
-                    "id": rule["id"],
-                    "status": rule["status"],
-                    "category": rule["category"],
-                    "title": rule["title"],
-                    "reason": rule["reason"],
-                    "source": rule["source"],
-                }
-            )
+        rule_match = _get_rule_match(rule, ingredient, ingredient_ecodes)
+        if rule_match:
+            matched.append(rule_match)
 
     if not matched:
         return {
@@ -113,7 +164,7 @@ def evaluate_ingredient_against_rules(ingredient: str) -> dict[str, Any]:
             "reason": "No explicit knowledge-base rule matched this ingredient.",
         }
 
-    strongest = max(matched, key=lambda item: STATUS_PRIORITY.get(item["status"], 0))
+    strongest = _choose_strongest_match(matched)
     return {
         "status": strongest["status"],
         "matched_rules": matched,

@@ -68,6 +68,40 @@ if (compliant.body.final_verdict !== 'HALAL COMPLIANT') {
 }
 console.log('compliant:', compliant.body.final_verdict);
 
+const commonClean = await invoke(analyzeHandler, {
+  method: 'POST',
+  body: {
+    productName: 'Common Pantry Mix',
+    ingredients: 'whole wheat flour, water, sugar, yeast, soybean oil, salt, calcium sulfate, potatoes, vegetable oil (sunflower, corn), calcium chloride, green tea leaves, roasted peanuts',
+    certifyingBody: 'JAKIM',
+  },
+});
+expectOk('common clean analyze', commonClean);
+if (commonClean.body.final_verdict !== 'HALAL COMPLIANT') {
+  throw new Error(`Expected HALAL COMPLIANT, got ${commonClean.body.final_verdict}`);
+}
+if (commonClean.body.ingredient_results.some((row: any) => row.status === 'UNKNOWN')) {
+  throw new Error(`Expected no UNKNOWN common ingredients: ${JSON.stringify(commonClean.body.ingredient_results)}`);
+}
+console.log('common clean:', commonClean.body.final_verdict);
+
+const sourceResolved = await invoke(analyzeHandler, {
+  method: 'POST',
+  body: {
+    productName: 'Source Resolved Ingredients',
+    ingredients: 'microbial rennet, soy lecithin, vegetable glycerin, fish gelatin',
+    certifyingBody: 'JAKIM',
+  },
+});
+expectOk('source-resolved analyze', sourceResolved);
+if (sourceResolved.body.final_verdict !== 'HALAL COMPLIANT') {
+  throw new Error(`Expected HALAL COMPLIANT, got ${sourceResolved.body.final_verdict}`);
+}
+if (sourceResolved.body.ingredient_results.some((row: any) => row.status !== 'HALAL')) {
+  throw new Error(`Expected source-resolved ingredients to be HALAL: ${JSON.stringify(sourceResolved.body.ingredient_results)}`);
+}
+console.log('source-resolved:', sourceResolved.body.final_verdict);
+
 const nonCompliant = await invoke(analyzeHandler, {
   method: 'POST',
   body: {

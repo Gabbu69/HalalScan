@@ -66,6 +66,56 @@ const extractENumbers = (source: string) => {
   return new Set(matches || []);
 };
 
+const getRuleMatch = (rule: Rule, ingredient: string, eNumbers: Set<string>) => {
+  const eNumberMatches = rule.e_numbers.filter(code => eNumbers.has(code.toUpperCase()));
+  const keywordMatches = rule.keywords.filter(keyword => containsTerm(ingredient, keyword));
+
+  if (eNumberMatches.length === 0 && keywordMatches.length === 0) return null;
+
+  const specificity = Math.max(
+    0,
+    ...eNumberMatches.map(code => normalizeEcodes(code).length + 100),
+    ...keywordMatches.map(keyword => normalizeEcodes(keyword).length)
+  );
+
+  return {
+    id: rule.id,
+    status: rule.status,
+    category: rule.category,
+    title: rule.title,
+    reason: rule.reason,
+    source: rule.source,
+    matched_terms: [...eNumberMatches, ...keywordMatches],
+    specificity,
+  };
+};
+
+const chooseStrongestRuleMatch = (matches: any[]) => {
+  const compare = (a: any, b: any) => {
+    const priorityDelta = statusPriority[a.status] - statusPriority[b.status];
+    if (priorityDelta !== 0) return priorityDelta;
+    return (a.specificity || 0) - (b.specificity || 0);
+  };
+
+  const haramMatches = matches.filter(match => match.status === 'HARAM');
+  if (haramMatches.length > 0) {
+    return haramMatches.reduce((best, item) => (compare(item, best) > 0 ? item : best));
+  }
+
+  const bestHalal = matches
+    .filter(match => match.status === 'HALAL')
+    .reduce((best, item) => (!best || compare(item, best) > 0 ? item : best), null);
+  const bestNonHalal = matches
+    .filter(match => !['HALAL', 'INFO'].includes(match.status))
+    .reduce((best, item) => (!best || compare(item, best) > 0 ? item : best), null);
+
+  if (bestHalal && bestNonHalal && (bestHalal.specificity || 0) > (bestNonHalal.specificity || 0)) {
+    return bestHalal;
+  }
+
+  return matches.reduce((best, item) => (compare(item, best) > 0 ? item : best));
+};
+
 export const verifyCertifyingBody = (value?: string) => {
   const input = (value || '').trim();
   if (!input) {
@@ -107,19 +157,8 @@ export const evaluateIngredientAgainstRules = (ingredient: string) => {
   const eNumbers = extractENumbers(ingredient);
 
   loadKnowledgeBase().rules.forEach(rule => {
-    const eNumberMatch = rule.e_numbers.some(code => eNumbers.has(code.toUpperCase()));
-    const keywordMatch = rule.keywords.some(keyword => containsTerm(ingredient, keyword));
-
-    if (eNumberMatch || keywordMatch) {
-      matched.push({
-        id: rule.id,
-        status: rule.status,
-        category: rule.category,
-        title: rule.title,
-        reason: rule.reason,
-        source: rule.source,
-      });
-    }
+    const ruleMatch = getRuleMatch(rule, ingredient, eNumbers);
+    if (ruleMatch) matched.push(ruleMatch);
   });
 
   if (matched.length === 0) {
@@ -130,9 +169,7 @@ export const evaluateIngredientAgainstRules = (ingredient: string) => {
     };
   }
 
-  const strongest = matched.reduce((best, item) =>
-    statusPriority[item.status] > statusPriority[best.status] ? item : best
-  );
+  const strongest = chooseStrongestRuleMatch(matched);
 
   return {
     status: strongest.status as RuleStatus,
@@ -143,10 +180,57 @@ export const evaluateIngredientAgainstRules = (ingredient: string) => {
 
 export const splitIngredients = (text: string) => {
   const clean = (text || '').replace(/\bingredients?\s*[:.-]\s*/i, '');
-  return clean
-    .split(/[,;\n]+/)
-    .map(part => part.replace(/\s+/g, ' ').replace(/^[ .:-]+|[ .:-]+$/g, ''))
+  const parts: string[] = [];
+  let current = '';
+  let depth = 0;
+
+  for (const char of clean) {
+    if ('([{'.includes(char)) depth += 1;
+    if (')]}'.includes(char) && depth > 0) depth -= 1;
+
+    if ((char === ',' || char === ';' || char === '\n') && depth === 0) {
+      parts.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  parts.push(current);
+
+  return parts
+    .map(part => part.replace(/\s+/g, ' ').replace(/^[\s.,:;\-]+|[\s.,:;\-]+$/g, ''))
     .filter(item => item.length >= 2);
+};
+
+export const extractIngredientFocusedText = (text: string) => {
+  const normalized = (text || '').replace(/\r/g, '');
+  if (!normalized.trim()) return '';
+
+  const markers = [/\bingredients?\b/i, /\bingredient list\b/i, /\bcontains\b/i];
+  const startMatch = markers.map(pattern => normalized.match(pattern)).find(Boolean);
+  let candidate = startMatch?.index !== undefined ? normalized.slice(startMatch.index) : normalized;
+
+  const stopMarkers = [
+    /\bnutrition(?:al)? facts\b/i,
+    /\bsupplement facts\b/i,
+    /\bdirections\b/i,
+    /\bdistributed by\b/i,
+    /\bmanufactured by\b/i,
+    /\bproduct of\b/i,
+    /\bbest before\b/i,
+    /\bexpiry\b/i,
+    /\bexpiration\b/i,
+    /\bstorage\b/i,
+    /\bkeep refrigerated\b/i,
+    /\bnet wt\b/i,
+    /\bbarcode\b/i,
+  ];
+  const endIndexes = stopMarkers
+    .map(pattern => candidate.search(pattern))
+    .filter(index => index >= 0);
+  if (endIndexes.length > 0) candidate = candidate.slice(0, Math.min(...endIndexes));
+
+  return candidate.replace(/\s+/g, ' ').trim().replace(/^[ .:-]+|[ .:-]+$/g, '');
 };
 
 const isMissingIngredients = (text: string) => {
@@ -295,12 +379,14 @@ export const analyzePayload = async (payload: any) => {
     labels: payload.labels || '',
   };
 
-  let ingredientsText = payload.ocrText || payload.ingredients || payload.text || '';
+  let rawIngredientsText = payload.ocrText || payload.ingredients || payload.text || '';
+  let ingredientsText = extractIngredientFocusedText(rawIngredientsText);
   if (barcode && !ingredientsText) {
     const offProduct = await fetchProductByBarcode(barcode);
     if (offProduct) {
       Object.assign(product, offProduct);
-      ingredientsText = offProduct.ingredients;
+      rawIngredientsText = offProduct.ingredients;
+      ingredientsText = extractIngredientFocusedText(rawIngredientsText);
     }
   }
 
@@ -410,7 +496,7 @@ export const analyzePayload = async (payload: any) => {
     reason,
     recommendation,
     flagged_ingredients: ingredientResults.filter(row => ['HARAM', 'DOUBTFUL', 'UNKNOWN'].includes(row.status)).map(row => row.ingredient),
-    ingredients: ingredientsText,
+    ingredients: ingredientsText || rawIngredientsText,
     product,
     certifying_body: certification,
     ingredient_results: ingredientResults,

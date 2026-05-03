@@ -13,9 +13,70 @@ from .rapidapi_client import classify_ingredient
 
 def split_ingredients(text: str) -> list[str]:
     clean = re.sub(r"\bingredients?\s*[:.-]\s*", "", text or "", flags=re.IGNORECASE)
-    parts = re.split(r"[,;\n]+", clean)
-    ingredients = [re.sub(r"\s+", " ", part).strip(" .:-") for part in parts]
+    parts: list[str] = []
+    current: list[str] = []
+    depth = 0
+
+    for char in clean:
+        if char in "([{":
+            depth += 1
+        elif char in ")]}" and depth > 0:
+            depth -= 1
+
+        if char in ",;\n" and depth == 0:
+            parts.append("".join(current))
+            current = []
+        else:
+            current.append(char)
+
+    parts.append("".join(current))
+    ingredients = [re.sub(r"\s+", " ", part).strip(" .:-,;") for part in parts]
     return [item for item in ingredients if len(item) >= 2]
+
+
+def extract_ingredient_focused_text(text: str) -> str:
+    normalized = (text or "").replace("\r", "")
+    if not normalized.strip():
+        return ""
+
+    markers = [
+        r"\bingredients?\b",
+        r"\bingredient list\b",
+        r"\bcontains\b",
+    ]
+    start_match = None
+    for marker in markers:
+        start_match = re.search(marker, normalized, flags=re.IGNORECASE)
+        if start_match:
+            break
+
+    candidate = normalized[start_match.start():] if start_match else normalized
+    stop_markers = [
+        r"\bnutrition(?:al)? facts\b",
+        r"\bsupplement facts\b",
+        r"\bdirections\b",
+        r"\bdistributed by\b",
+        r"\bmanufactured by\b",
+        r"\bproduct of\b",
+        r"\bbest before\b",
+        r"\bexpiry\b",
+        r"\bexpiration\b",
+        r"\bstorage\b",
+        r"\bkeep refrigerated\b",
+        r"\bnet wt\b",
+        r"\bbarcode\b",
+    ]
+    end_positions = [
+        match.start()
+        for pattern in stop_markers
+        for match in [re.search(pattern, candidate, flags=re.IGNORECASE)]
+        if match
+    ]
+    if end_positions:
+        candidate = candidate[: min(end_positions)]
+
+    candidate = re.sub(r"\s+", " ", candidate).strip(" .:-")
+    return candidate
 
 
 def _priority_status(*statuses: str) -> str:
@@ -56,18 +117,20 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "labels": payload.get("labels") or "",
     }
 
-    ingredients_text = (
+    raw_ingredients_text = (
         payload.get("ocrText")
         or payload.get("ingredients")
         or payload.get("text")
         or ""
     )
+    ingredients_text = extract_ingredient_focused_text(raw_ingredients_text)
 
     if barcode and not ingredients_text:
         off_product = fetch_product_by_barcode(barcode)
         if off_product:
             product.update(off_product)
-            ingredients_text = off_product.get("ingredients", "")
+            raw_ingredients_text = off_product.get("ingredients", "")
+            ingredients_text = extract_ingredient_focused_text(raw_ingredients_text)
 
     cert_result = verify_certifying_body(certifying_body)
     fact_trace: list[dict[str, Any]] = []
@@ -184,7 +247,7 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "reason": reason,
         "recommendation": recommendation,
         "flagged_ingredients": flagged,
-        "ingredients": ingredients_text,
+        "ingredients": ingredients_text or raw_ingredients_text,
         "product": product,
         "certifying_body": cert_result,
         "ingredient_results": ingredient_results,

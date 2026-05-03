@@ -132,6 +132,37 @@ export function Scanner() {
     reader.readAsDataURL(file);
   });
 
+  const extractIngredientFocusedText = (text: string) => {
+    const normalized = (text || '').replace(/\r/g, '');
+    if (!normalized.trim()) return '';
+
+    const markers = [/\bingredients?\b/i, /\bingredient list\b/i, /\bcontains\b/i];
+    const startMatch = markers.map(pattern => normalized.match(pattern)).find(Boolean);
+    let candidate = startMatch?.index !== undefined ? normalized.slice(startMatch.index) : normalized;
+
+    const stopMarkers = [
+      /\bnutrition(?:al)? facts\b/i,
+      /\bsupplement facts\b/i,
+      /\bdirections\b/i,
+      /\bdistributed by\b/i,
+      /\bmanufactured by\b/i,
+      /\bproduct of\b/i,
+      /\bbest before\b/i,
+      /\bexpiry\b/i,
+      /\bexpiration\b/i,
+      /\bstorage\b/i,
+      /\bkeep refrigerated\b/i,
+      /\bnet wt\b/i,
+      /\bbarcode\b/i,
+    ];
+    const endIndexes = stopMarkers
+      .map(pattern => candidate.search(pattern))
+      .filter(index => index >= 0);
+    if (endIndexes.length > 0) candidate = candidate.slice(0, Math.min(...endIndexes));
+
+    return candidate.replace(/\s+/g, ' ').trim().replace(/^[ .:-]+|[ .:-]+$/g, '');
+  };
+
   const compressImage = (base64: string) => new Promise<string>((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -200,8 +231,6 @@ export function Scanner() {
       const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
       const uploadDataUrl = isPdf ? rawDataUrl : await compressImage(rawDataUrl);
       const mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
-      const fileNameText = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
-
       setPendingAnalysisImage(uploadDataUrl);
       setReviewImagePreview(isPdf ? null : uploadDataUrl);
       setPendingAnalysisImageOcrText(null);
@@ -224,7 +253,7 @@ export function Scanner() {
         }
       }
 
-      extractedReviewText = [extractedReviewText, fileNameText].filter(Boolean).join(' ').trim();
+      extractedReviewText = extractIngredientFocusedText(extractedReviewText);
       setReviewOcrText(extractedReviewText);
       setPendingAnalysisImageOcrText(extractedReviewText || null);
       setShowOcrReview(true);
@@ -337,7 +366,7 @@ export function Scanner() {
               <button
                 type="button"
                 onClick={handleAnalyzeReviewedPhoto}
-                disabled={!reviewImagePreview}
+                disabled={!reviewOcrText.trim()}
                 className="flex items-center justify-center gap-2 bg-[#C9A84C] hover:bg-[#b09341] text-[#1B6B3A] py-3 rounded-xl font-bold tracking-wider transition-all disabled:opacity-50 uppercase text-[10px]"
               >
                 <Check size={16} />

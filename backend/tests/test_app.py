@@ -128,6 +128,46 @@ def test_halal_requires_recognized_certifying_body(tmp_path, monkeypatch):
     assert response.get_json()["final_verdict"] == "HALAL COMPLIANT"
 
 
+def test_common_clean_ingredients_are_not_left_unknown(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    response = client.post(
+        "/api/analyze",
+        json={
+            "productName": "Common Pantry Mix",
+            "ingredients": (
+                "whole wheat flour, water, sugar, yeast, soybean oil, salt, calcium sulfate, "
+                "potatoes, vegetable oil (sunflower, corn), calcium chloride, green tea leaves, roasted peanuts"
+            ),
+            "certifyingBody": "JAKIM",
+        },
+    )
+    data = response.get_json()
+    assert response.status_code == 200
+    assert data["final_verdict"] == "HALAL COMPLIANT"
+    assert {row["status"] for row in data["ingredient_results"]} == {"HALAL"}
+    assert not [
+        row["ingredient"]
+        for row in data["ingredient_results"]
+        if row["status"] == "UNKNOWN"
+    ]
+
+
+def test_specific_halal_sources_override_generic_doubtful_terms(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    response = client.post(
+        "/api/analyze",
+        json={
+            "productName": "Source Resolved Ingredients",
+            "ingredients": "microbial rennet, soy lecithin, vegetable glycerin, fish gelatin",
+            "certifyingBody": "JAKIM",
+        },
+    )
+    data = response.get_json()
+    assert response.status_code == 200
+    assert data["final_verdict"] == "HALAL COMPLIANT"
+    assert {row["status"] for row in data["ingredient_results"]} == {"HALAL"}
+
+
 def test_missing_certifying_body_requires_review(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
     response = client.post(
@@ -173,6 +213,25 @@ def test_doubtful_ingredients_require_review(tmp_path, monkeypatch):
     assert response.status_code == 200
     assert data["final_verdict"] == "REQUIRES REVIEW"
     assert "R002" in data["triggered_rules"]
+
+
+def test_ocr_text_is_trimmed_to_ingredient_section(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    response = client.post(
+        "/api/analyze",
+        json={
+            "productName": "Label OCR Sample",
+            "ocrText": (
+                "NUTRITION FACTS Calories 120 Ingredients: rice, sunflower oil, sea salt "
+                "Distributed by Sample Foods Best Before 2027"
+            ),
+            "certifyingBody": "JAKIM",
+        },
+    )
+    data = response.get_json()
+    assert response.status_code == 200
+    assert data["final_verdict"] == "HALAL COMPLIANT"
+    assert "Ingredients: rice, sunflower oil, sea salt" in data["ingredients"]
 
 
 def test_rapidapi_no_credentials_is_explicit_but_deterministic(tmp_path, monkeypatch):
