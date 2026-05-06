@@ -20,6 +20,7 @@ export type IntegratedAnalysisResult = {
   certification?: any;
   ingredient_results?: any[];
   triggered_rules?: string[];
+  rubric_evidence?: any;
   architectureDetails: {
     krrAnalysis: InferenceResult | any;
     mlAnalysis: any;
@@ -88,6 +89,7 @@ const adaptBackendResult = (data: any): IntegratedAnalysisResult => ({
   certification: data.certifying_body,
   ingredient_results: data.ingredient_results || [],
   triggered_rules: data.triggered_rules || [],
+  rubric_evidence: data.rubric_evidence,
   architectureDetails: data.architectureDetails || {
     krrAnalysis: {
       status: data.final_verdict,

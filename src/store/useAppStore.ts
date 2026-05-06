@@ -17,6 +17,7 @@ export interface ScanRecord {
   certification?: any;
   ingredient_results?: any[];
   triggered_rules?: string[];
+  rubric_evidence?: any;
   architectureDetails?: any;
 }
 

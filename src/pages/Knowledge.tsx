@@ -6,6 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useTranslation } from '../hooks/useTranslation';
 
 type KnowledgeRuleStatus = CanonicalRuleStatus | 'DOUBTFUL';
+type KnowledgeFilter = 'ALL' | 'HARAM' | 'DOUBTFUL' | 'HALAL' | 'INFO' | 'E_NUMBERS';
 
 type KnowledgeRule = HalalRule & {
   status: KnowledgeRuleStatus;
@@ -53,6 +54,7 @@ export function Knowledge() {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<KnowledgeFilter>('ALL');
   const [rules, setRules] = useState<KnowledgeRule[]>(() =>
     CANONICAL_RULES.map(rule => ({
       id: rule.id,
@@ -97,14 +99,28 @@ export function Knowledge() {
     loadBackendRules();
   }, [rules.length]);
 
+  const filterOptions: Array<{ id: KnowledgeFilter; label: string }> = [
+    { id: 'ALL', label: 'All' },
+    { id: 'HARAM', label: 'Haram' },
+    { id: 'DOUBTFUL', label: 'Doubtful' },
+    { id: 'HALAL', label: 'Halal' },
+    { id: 'INFO', label: 'Info' },
+    { id: 'E_NUMBERS', label: 'E-numbers' },
+  ];
+
   const filteredRules = rules.filter(rule => {
     const title = t(`knowledge.rule_${rule.id}_title`) || rule.title;
     const content = t(`knowledge.rule_${rule.id}_content`) || rule.content;
-    return title.toLowerCase().includes(search.toLowerCase()) || 
-           content.toLowerCase().includes(search.toLowerCase()) ||
-           rule.status.toLowerCase().includes(search.toLowerCase()) ||
-           rule.category.toLowerCase().includes(search.toLowerCase()) ||
-           rule.source.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = title.toLowerCase().includes(search.toLowerCase()) ||
+      content.toLowerCase().includes(search.toLowerCase()) ||
+      rule.status.toLowerCase().includes(search.toLowerCase()) ||
+      rule.category.toLowerCase().includes(search.toLowerCase()) ||
+      rule.source.toLowerCase().includes(search.toLowerCase());
+    const matchesFilter =
+      filter === 'ALL' ||
+      (filter === 'E_NUMBERS' ? Boolean(rule.eNumbers?.length) : rule.status === filter);
+
+    return matchesSearch && matchesFilter;
   });
 
   return (
@@ -119,6 +135,25 @@ export function Knowledge() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+        </div>
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {filterOptions.map(option => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setFilter(option.id)}
+              className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider transition-colors ${
+                filter === option.id
+                  ? 'border-[#1B6B3A] bg-[#1B6B3A] text-white'
+                  : 'border-gray-100 bg-white text-gray-500 dark:border-gray-800 dark:bg-[#1a2e22] dark:text-gray-300'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-2 text-[9px] font-bold uppercase tracking-wider text-gray-400">
+          Showing {filteredRules.length} of {rules.length} rules
         </div>
       </div>
 

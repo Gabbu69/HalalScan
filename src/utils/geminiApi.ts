@@ -127,7 +127,7 @@ Provide a concise, direct, and well-structured answer. ${!isGeneral ? "If there 
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ prompt, query, madhab, language })
     });
 
     if (!response.ok) {

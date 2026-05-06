@@ -1,4 +1,5 @@
 import analyzeHandler from './api/analyze';
+import chatHandler from './api/chat';
 import healthHandler from './api/health';
 import historyHandler from './api/history';
 import ocrHandler from './api/ocr';
@@ -68,6 +69,46 @@ if (compliant.body.final_verdict !== 'HALAL COMPLIANT') {
 }
 console.log('compliant:', compliant.body.final_verdict);
 
+const requiredAnalyzeKeys = [
+  'final_verdict',
+  'confidence',
+  'reason',
+  'recommendation',
+  'ingredient_results',
+  'triggered_rules',
+  'certifying_body',
+  'architectureDetails',
+  'rubric_evidence',
+];
+for (const key of requiredAnalyzeKeys) {
+  if (!(key in compliant.body)) throw new Error(`Analyze response is missing public contract key: ${key}`);
+}
+const evidence = compliant.body.rubric_evidence;
+if (evidence.contract_version !== 'ml-kbd-re-si-v1') {
+  throw new Error(`Unexpected rubric evidence contract: ${evidence.contract_version}`);
+}
+if (JSON.stringify(evidence) !== JSON.stringify(compliant.body.architectureDetails.rubricEvidence)) {
+  throw new Error('Expected top-level rubric_evidence to match architectureDetails.rubricEvidence.');
+}
+if (evidence.mlImplementation.primary_classifier !== 'RapidAPI Halal Food Checker') {
+  throw new Error('Expected RapidAPI to be documented as the primary ML classifier.');
+}
+if (evidence.knowledgeBaseDesign.rule_count < 60) {
+  throw new Error('Expected at least 60 canonical KB rules in rubric evidence.');
+}
+for (const body of ['JAKIM', 'MUI', 'IFANCA', 'HFA', 'ESMA']) {
+  if (!evidence.knowledgeBaseDesign.certifying_bodies.includes(body)) {
+    throw new Error(`Expected certifying body evidence for ${body}.`);
+  }
+}
+if (evidence.reasoningEngine.priority.join('>') !== 'HARAM>DOUBTFUL>UNKNOWN>HALAL') {
+  throw new Error('Expected deterministic reasoning priority evidence.');
+}
+if (evidence.systemIntegration.main_route !== '/api/analyze') {
+  throw new Error('Expected /api/analyze as the documented integration route.');
+}
+console.log('contract:', evidence.contract_version);
+
 const commonClean = await invoke(analyzeHandler, {
   method: 'POST',
   body: {
@@ -135,6 +176,37 @@ if (review.body.final_verdict !== 'REQUIRES REVIEW') {
   throw new Error(`Expected REQUIRES REVIEW, got ${review.body.final_verdict}`);
 }
 console.log('review:', review.body.final_verdict);
+
+const chatE120 = await invoke(chatHandler, { method: 'POST', body: { query: 'Is E120 halal?', language: 'English' } });
+expectOk('chat E120 RAG', chatE120);
+if (!chatE120.body.retrieved_rules.some((rule: any) => rule.id === 'R001')) {
+  throw new Error(`Expected R001 in E120 RAG response: ${JSON.stringify(chatE120.body)}`);
+}
+if (!chatE120.body.text.includes('RAG explanation only')) {
+  throw new Error('Expected RAG guardrail in E120 chat response.');
+}
+console.log('chat E120:', chatE120.body.retrieval_mode, chatE120.body.retrieved_rules.map((rule: any) => rule.id));
+
+const chatGelatin = await invoke(chatHandler, { method: 'POST', body: { query: 'Why is gelatin doubtful?' } });
+expectOk('chat gelatin RAG', chatGelatin);
+if (!chatGelatin.body.retrieved_rules.some((rule: any) => rule.id === 'R002')) {
+  throw new Error(`Expected R002 in gelatin RAG response: ${JSON.stringify(chatGelatin.body)}`);
+}
+console.log('chat gelatin:', chatGelatin.body.retrieved_rules.map((rule: any) => rule.id));
+
+const chatCertifier = await invoke(chatHandler, { method: 'POST', body: { query: 'Is JAKIM recognized?' } });
+expectOk('chat certifier RAG', chatCertifier);
+if (!chatCertifier.body.retrieved_certifying_bodies.some((body: any) => body.name === 'JAKIM')) {
+  throw new Error(`Expected JAKIM certifier in RAG response: ${JSON.stringify(chatCertifier.body)}`);
+}
+console.log('chat certifier:', chatCertifier.body.retrieved_certifying_bodies.map((body: any) => body.name));
+
+const chatUnknown = await invoke(chatHandler, { method: 'POST', body: { query: 'spaceship quantum battery' } });
+expectOk('chat unknown RAG', chatUnknown);
+if (chatUnknown.body.retrieved_rules.length !== 0) {
+  throw new Error(`Expected no RAG rules for unknown query: ${JSON.stringify(chatUnknown.body)}`);
+}
+console.log('chat unknown:', chatUnknown.body.retrieval_mode);
 
 const ocr = await invoke(ocrHandler, {
   method: 'POST',

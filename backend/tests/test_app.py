@@ -66,6 +66,42 @@ def test_haram_rule_overrides_certification(tmp_path, monkeypatch):
     assert data["architectureDetails"]["krrAnalysis"]["matchedRules"]
 
 
+def test_analyze_response_exposes_grading_contract(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    response = client.post(
+        "/api/analyze",
+        json={
+            "productName": "Rice Crackers",
+            "ingredients": "rice, sunflower oil, sea salt",
+            "certifyingBody": "JAKIM",
+        },
+    )
+    data = response.get_json()
+    assert response.status_code == 200
+    assert {
+        "final_verdict",
+        "confidence",
+        "reason",
+        "recommendation",
+        "ingredient_results",
+        "triggered_rules",
+        "certifying_body",
+        "architectureDetails",
+        "rubric_evidence",
+    } <= set(data)
+
+    evidence = data["rubric_evidence"]
+    assert evidence["contract_version"] == "ml-kbd-re-si-v1"
+    assert evidence == data["architectureDetails"]["rubricEvidence"]
+    assert evidence["mlImplementation"]["primary_classifier"] == "RapidAPI Halal Food Checker"
+    assert evidence["mlImplementation"]["live_api_optional"] is True
+    assert evidence["knowledgeBaseDesign"]["source_of_truth"] == "backend/data/halal_rules.json"
+    assert evidence["knowledgeBaseDesign"]["rule_count"] >= 60
+    assert set(evidence["knowledgeBaseDesign"]["certifying_bodies"]) >= {"JAKIM", "MUI", "IFANCA", "HFA", "ESMA"}
+    assert evidence["reasoningEngine"]["priority"] == ["HARAM", "DOUBTFUL", "UNKNOWN", "HALAL"]
+    assert evidence["systemIntegration"]["main_route"] == "/api/analyze"
+
+
 def test_exact_e_number_matching_does_not_flag_longer_codes(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
     response = client.post(
@@ -280,6 +316,34 @@ def test_google_vision_ocr_skips_cleanly_without_credentials(tmp_path, monkeypat
     assert response.status_code == 200
     assert data["engine"] == "google-vision-unavailable"
     assert data["text"] == "fallback ingredients"
+
+
+def test_chat_rag_retrieves_e120_rule(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    response = client.post("/api/chat", json={"query": "Is E120 halal?"})
+    data = response.get_json()
+    assert response.status_code == 200
+    assert data["retrieval_mode"] == "knowledge-base-rag"
+    assert any(rule["id"] == "R001" for rule in data["retrieved_rules"])
+    assert "RAG explanation only" in data["text"]
+
+
+def test_chat_rag_retrieves_gelatin_and_certifier(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    gelatin = client.post("/api/chat", json={"query": "Why is gelatin doubtful?"}).get_json()
+    assert any(rule["id"] == "R002" for rule in gelatin["retrieved_rules"])
+
+    certifier = client.post("/api/chat", json={"query": "Is JAKIM recognized?"}).get_json()
+    assert any(body["name"] == "JAKIM" for body in certifier["retrieved_certifying_bodies"])
+
+
+def test_chat_rag_unknown_query_is_deterministic(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    response = client.post("/api/chat", json={"query": "spaceship quantum battery"})
+    data = response.get_json()
+    assert response.status_code == 200
+    assert data["retrieved_rules"] == []
+    assert "could not find a direct match" in data["text"]
 
 
 def test_history_persists_scan_results(tmp_path, monkeypatch):

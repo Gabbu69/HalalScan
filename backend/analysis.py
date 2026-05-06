@@ -6,7 +6,13 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .database import save_scan
-from .knowledge_base import STATUS_PRIORITY, evaluate_ingredient_against_rules, verify_certifying_body
+from .knowledge_base import (
+    STATUS_PRIORITY,
+    evaluate_ingredient_against_rules,
+    load_certifying_bodies,
+    load_rules,
+    verify_certifying_body,
+)
 from .openfoodfacts import fetch_product_by_barcode
 from .rapidapi_client import classify_ingredient
 
@@ -104,6 +110,35 @@ def _normalize_api_status(status: str) -> str:
     if status == "MASHBOOH":
         return "DOUBTFUL"
     return status
+
+
+def _build_rubric_evidence() -> dict[str, Any]:
+    rules = load_rules()
+    certifying_bodies = load_certifying_bodies()
+    return {
+        "contract_version": "ml-kbd-re-si-v1",
+        "mlImplementation": {
+            "primary_classifier": "RapidAPI Halal Food Checker",
+            "fallback_model": "TF-IDF weighted Multinomial Naive Bayes",
+            "live_api_optional": True,
+            "normalized_statuses": ["HALAL", "HARAM", "DOUBTFUL", "UNKNOWN", "UNAVAILABLE"],
+        },
+        "knowledgeBaseDesign": {
+            "source_of_truth": "backend/data/halal_rules.json",
+            "rule_count": len(rules),
+            "certifying_bodies": [body["name"] for body in certifying_bodies],
+            "required_rule_fields": ["id", "category", "status", "e_numbers", "keywords", "reason", "source"],
+        },
+        "reasoningEngine": {
+            "priority": ["HARAM", "DOUBTFUL", "UNKNOWN", "HALAL"],
+            "exposes": ["facts", "matchedRules", "logicPath", "conflictResolution", "certificationCheck"],
+        },
+        "systemIntegration": {
+            "main_route": "/api/analyze",
+            "input_modes": ["manual_text", "barcode_openfoodfacts", "ocr_text"],
+            "deployment_targets": ["Flask local API", "Vercel TypeScript Functions"],
+        },
+    }
 
 
 def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -215,6 +250,7 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
     statuses = [row["status"] for row in ingredient_results]
     haram_items = [row for row in ingredient_results if row["status"] == "HARAM"]
     doubtful_items = [row for row in ingredient_results if row["status"] in {"DOUBTFUL", "UNKNOWN"}]
+    rubric_evidence = _build_rubric_evidence()
 
     if haram_items:
         final_verdict = "NON-COMPLIANT"
@@ -258,7 +294,9 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 for rule in row.get("matched_rules", [])
             }
         ),
+        "rubric_evidence": rubric_evidence,
         "architectureDetails": {
+            "rubricEvidence": rubric_evidence,
             "krrAnalysis": {
                 "status": "HARAM" if haram_items else "MASHBOOH" if doubtful_items or not cert_result["recognized"] else "HALAL",
                 "confidence": confidence / 100,

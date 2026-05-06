@@ -12,7 +12,7 @@
 - Upload a product label, scan a barcode, or paste ingredients.
 - Google Vision extracts label text.
 - RapidAPI Halal Food Checker classifies ingredients.
-- A 60-rule knowledge base verifies compliance and explains the final verdict.
+- A 67-rule knowledge base verifies compliance and explains the final verdict.
 
 ## Slide 4: System Architecture
 - React frontend for scanning, OCR review, analysis results, knowledge base, and history.
@@ -21,7 +21,7 @@
 - Open Food Facts supplements barcode lookup.
 
 ## Slide 5: Knowledge Base
-- 60 canonical rules in `backend/data/halal_rules.json`.
+- 67 canonical rules in `backend/data/halal_rules.json`.
 - Covers additives, E-numbers, pork, alcohol, animal enzymes, dairy, meat, seafood, processing, and certifying bodies.
 - Recognized bodies: JAKIM, MUI, IFANCA, HFA, ESMA.
 

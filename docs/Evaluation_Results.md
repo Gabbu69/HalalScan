@@ -17,7 +17,7 @@ Verified locally on May 2, 2026. Live Google Vision and RapidAPI keys were not r
 The Analysis result page exposes a **Rubric Evidence Logs** accordion with the four required implementation areas:
 
 - **ML Implementation:** shows the RapidAPI Halal Food Checker provider, local TF-IDF Naive Bayes fallback, generated verdict, confidence, and ingredient classification count.
-- **Knowledge Base Design:** shows the canonical 60-rule JSON knowledge base, triggered rule IDs, certifying-body status, and matched rule sources.
+- **Knowledge Base Design:** shows the canonical 67-rule JSON knowledge base, triggered rule IDs, certifying-body status, and matched rule sources.
 - **Reasoning Engine:** shows the deterministic priority order `HARAM > DOUBTFUL > UNKNOWN > HALAL`, selected verdict, rule-based status, and inference logic path.
 - **System Integration:** shows the input mode, `/api/analyze` processing flow, final verdict, and integration trace across OCR/barcode/text, ML, KB, and reasoning layers.
 

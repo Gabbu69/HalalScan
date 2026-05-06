@@ -1,5 +1,5 @@
 {
-  "name": "react-example",
+  "name": "halalscan",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -14,6 +14,7 @@
     "test:ml": "tsx test_ml.ts",
     "test:backend": "python -m pytest backend",
     "test:vercel-api": "tsx test_vercel_api.ts",
+    "test:badges": "node test_badges_visual.js",
     "test:api": "node test_local_api.js",
     "test:gemini": "node test_gemini.js"
   },

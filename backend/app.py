@@ -10,6 +10,7 @@ from .database import init_db, list_history
 from .knowledge_base import load_certifying_bodies, load_rules
 from .ocr import is_configured as is_google_vision_configured
 from .ocr import run_ocr_payload
+from .rag import build_rag_chat_response, retrieve_knowledge
 from .rapidapi_client import is_configured as is_rapidapi_configured
 
 
@@ -68,15 +69,16 @@ def create_app() -> Flask:
     @app.post("/api/chat")
     def chat():
         payload = request.get_json(silent=True) or {}
-        prompt = str(payload.get("prompt") or "").strip()
-        if not prompt:
+        query = str(payload.get("query") or payload.get("prompt") or "").strip()
+        if not query:
             return jsonify({"code": "INVALID_PROMPT", "error": "A non-empty prompt is required."}), 400
+        retrieval = retrieve_knowledge(query)
         return jsonify(
             {
-                "text": (
-                    "The Flask backend is configured for DOCX compliance analysis. "
-                    "Use the scanner or ingredient text input for rule-backed halal verification."
-                )
+                "text": build_rag_chat_response(query, retrieval),
+                "retrieved_rules": retrieval["rules"],
+                "retrieved_certifying_bodies": retrieval["certifying_bodies"],
+                "retrieval_mode": "knowledge-base-rag",
             }
         )
 

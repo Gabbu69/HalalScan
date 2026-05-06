@@ -9,7 +9,7 @@ HalalScan is a React + Flask web application for halal compliance screening. It 
 - **Vercel Adapter**: TypeScript serverless routes mirror the Flask analysis logic for deployed builds.
 - **OCR**: Google Vision `DOCUMENT_TEXT_DETECTION` for images and first 5 PDF pages.
 - **ML Classification**: Halal Food Checker through RapidAPI, cached in SQLite.
-- **Knowledge Base**: 60 structured rules plus recognized certifying bodies: JAKIM, MUI, IFANCA, HFA, and ESMA.
+- **Knowledge Base**: 67 structured rules plus recognized certifying bodies: JAKIM, MUI, IFANCA, HFA, and ESMA.
 - **Storage**: SQLite for scan history and ingredient classification cache.
 - **Fallbacks**: Existing Gemini/Tesseract/local Naive Bayes paths remain as optional local fallback support.
 
@@ -64,7 +64,7 @@ The deployed app uses `api/*.ts` serverless routes, so it does not need a long-r
 
 - `api/analyze.ts`: DOCX verdict logic, RapidAPI classification, OpenFoodFacts lookup, KB reasoning.
 - `api/ocr.ts`: Google Vision REST OCR when Vercel service-account env vars are configured.
-- `api/rules.ts`: 60-rule knowledge base.
+- `api/rules.ts`: 67-rule knowledge base.
 - `api/history.ts`: serverless-memory response; the frontend also persists scan history in localStorage.
 
 Set these Vercel environment variables for live external services:

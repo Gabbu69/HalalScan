@@ -1,6 +1,6 @@
 # Technical Report: HalalScan
 
-HalalScan follows the submitted proposal: React frontend, Flask backend, Google Vision OCR, RapidAPI Halal Food Checker, Open Food Facts barcode lookup, a canonical 60-rule knowledge base, deterministic reasoning, and SQLite history/cache storage.
+HalalScan follows the submitted proposal: React frontend, Flask backend, Google Vision OCR, RapidAPI Halal Food Checker, Open Food Facts barcode lookup, a canonical 67-rule knowledge base, deterministic reasoning, and SQLite history/cache storage.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ flowchart LR
   OCR --> GV[Google Vision]
   AN --> OFF[Open Food Facts]
   AN --> ML[RapidAPI Halal Food Checker]
-  AN --> KB[60-rule Canonical KB]
+  AN --> KB[67-rule Canonical KB]
   ML --> RE[Reasoning Engine]
   KB --> RE
   RE --> DB[(SQLite)]
@@ -38,7 +38,7 @@ Conflict priority is `HARAM > DOUBTFUL > UNKNOWN > HALAL`. The API response expo
 
 ## Knowledge Base
 
-`backend/data/halal_rules.json` is the source of truth. It contains 60 structured rules, E-number mappings, keyword triggers, reasons, source labels, and recognized certifying-body records for JAKIM, MUI, IFANCA, HFA, and ESMA.
+`backend/data/halal_rules.json` is the source of truth. It contains 67 structured rules, E-number mappings, keyword triggers, reasons, source labels, and recognized certifying-body records for JAKIM, MUI, IFANCA, HFA, and ESMA.
 
 ## Evaluation
 

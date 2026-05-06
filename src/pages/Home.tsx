@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { ScanLine, Search, CheckCircle2, XCircle, AlertTriangle, User, MapPin, Navigation, Info } from 'lucide-react';
 import { Badge } from '../components/Badge';
 import { useTranslation } from '../hooks/useTranslation';
+import { getVerdictPresentation } from '../utils/verdictPresentation';
 
 export function Home() {
   const { scans, getStats, userLocation, setUserLocation, locationPermissionStatus, setLocationPermissionStatus } = useAppStore();
@@ -142,17 +143,16 @@ export function Home() {
         ) : (
           <div className="space-y-2">
             {recentScans.map(scan => {
-              const isHalal = scan.verdict === 'HALAL' || scan.verdict === 'HALAL COMPLIANT';
-              const isHaram = scan.verdict === 'HARAM' || scan.verdict === 'NON-COMPLIANT';
-              const Icon = isHalal ? CheckCircle2 : isHaram ? XCircle : AlertTriangle;
-              const iconBg = isHalal ? 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400' : isHaram ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400';
+              const verdict = getVerdictPresentation(scan.verdict);
+              const Icon = verdict.tone === 'halal' ? CheckCircle2 : verdict.tone === 'haram' ? XCircle : AlertTriangle;
               return (
                 <div key={scan.id} className="bg-white dark:bg-[#1a2e22] p-2 rounded-lg flex items-center gap-3 shadow-sm border border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a2e22]/80 transition-colors" onClick={() => navigate('/history')}>
-                  <div className={`w-8 h-8 rounded flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+                  <div className={`w-8 h-8 rounded flex items-center justify-center flex-shrink-0 ${verdict.softClass}`}>
                     <Icon size={16} className="currentColor" />
                   </div>
                   <div className="flex-1 overflow-hidden pr-2">
                     <div className="text-[10px] sm:text-xs font-bold truncate text-gray-900 dark:text-white leading-tight">{scan.name}</div>
+                    <div className="text-[8px] font-bold uppercase tracking-wider text-gray-400 truncate">{verdict.secondaryLabel}</div>
                   </div>
                   <Badge verdict={scan.verdict} />
                 </div>

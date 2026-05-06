@@ -6,6 +6,7 @@ import { Badge } from '../components/Badge';
 import { ScanSearch, ArrowLeft, Cpu, Database, Network, ChevronDown, ChevronUp, AlertTriangle, Brain, ListChecks } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
 import { CANONICAL_RULES } from '../utils/canonicalKnowledgeBase';
+import { getVerdictPresentation } from '../utils/verdictPresentation';
 
 export function Analysis() {
   const [searchParams] = useSearchParams();
@@ -65,6 +66,7 @@ export function Analysis() {
             certification: integratedData.certification,
             ingredient_results: integratedData.ingredient_results,
             triggered_rules: integratedData.triggered_rules,
+            rubric_evidence: integratedData.rubric_evidence,
             architectureDetails: integratedData.architectureDetails
           };
 
@@ -96,6 +98,7 @@ export function Analysis() {
             certification: integratedData.certification,
             ingredient_results: integratedData.ingredient_results,
             triggered_rules: integratedData.triggered_rules,
+            rubric_evidence: integratedData.rubric_evidence,
             architectureDetails: integratedData.architectureDetails
           };
 
@@ -126,6 +129,7 @@ export function Analysis() {
             certification: integratedData.certification,
             ingredient_results: integratedData.ingredient_results,
             triggered_rules: integratedData.triggered_rules,
+            rubric_evidence: integratedData.rubric_evidence,
             architectureDetails: integratedData.architectureDetails
           };
 
@@ -230,26 +234,29 @@ export function Analysis() {
     );
   }
 
-  const borderClass = result.verdict === 'HALAL' || result.verdict === 'HALAL COMPLIANT'
-    ? 'border-green-600' 
-    : result.verdict === 'HARAM' || result.verdict === 'NON-COMPLIANT'
-    ? 'border-red-600' 
-    : 'border-amber-600';
-
-  const textClass = result.verdict === 'HALAL' || result.verdict === 'HALAL COMPLIANT'
-    ? 'text-green-600 dark:text-green-400' 
-    : result.verdict === 'HARAM' || result.verdict === 'NON-COMPLIANT'
-    ? 'text-red-600 dark:text-red-400' 
-    : 'text-amber-600 dark:text-amber-400';
+  const verdictPresentation = getVerdictPresentation(result.verdict);
+  const borderClass = verdictPresentation.borderClass;
+  const textClass = verdictPresentation.textClass;
   const architecture = result.architectureDetails;
   const krrAnalysis = architecture?.krrAnalysis || {};
   const mlAnalysis = architecture?.mlAnalysis || {};
+  const rubricEvidence = architecture?.rubricEvidence || result.rubric_evidence || {};
+  const mlEvidence = rubricEvidence.mlImplementation || {};
+  const kbEvidence = rubricEvidence.knowledgeBaseDesign || {};
+  const reasoningEvidence = rubricEvidence.reasoningEngine || {};
+  const integrationEvidence = rubricEvidence.systemIntegration || {};
   const logicPath = Array.isArray(krrAnalysis.logicPath) ? krrAnalysis.logicPath : [];
   const integrationLogic = Array.isArray(architecture?.integrationLogic) ? architecture.integrationLogic : [];
   const matchedRules = Array.isArray(krrAnalysis.matchedRules) ? krrAnalysis.matchedRules : [];
   const triggeredRules = result.triggered_rules || [];
   const certStatus = result.certification?.status || krrAnalysis.certificationCheck?.status || 'NOT PROVIDED';
   const inputMode = type === 'image' ? 'Image/OCR scan' : type === 'text' ? 'Manual ingredient text' : 'Barcode lookup';
+  const topFlaggedIngredient = result.flagged_ingredients?.[0] || 'None';
+  const decisionRule = verdictPresentation.tone === 'haram'
+    ? 'Any haram ingredient forces a HARAM user result.'
+    : verdictPresentation.tone === 'review'
+      ? 'Doubtful ingredients, unknown sources, or missing certification require review.'
+      : 'All ingredients are clear and the certifier is recognized.';
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F9F5F0] dark:bg-[var(--color-dark-bg)] p-5 w-full font-nunito text-[#1a1a1a]">
@@ -272,6 +279,9 @@ export function Analysis() {
           <div className="mt-4">
             <Badge verdict={result.verdict} size="lg" />
           </div>
+          <div className={`mt-2 max-w-full rounded-full border px-3 py-1 text-[9px] font-bold uppercase tracking-wider ${verdictPresentation.softClass}`}>
+            {verdictPresentation.secondaryLabel}
+          </div>
           <div className="mt-3 text-[10px] font-bold text-gray-500 tracking-wider">{t('analysis.confidence')}: {result.confidence}%</div>
         </div>
 
@@ -285,6 +295,35 @@ export function Analysis() {
               <p className="text-[10px] leading-relaxed text-gray-600 dark:text-gray-300">{result.recommendation}</p>
             </>
           )}
+        </div>
+
+        <div className="bg-white dark:bg-[#1a2e22] rounded-2xl p-4 mb-4 shadow-sm border border-gray-100 dark:border-gray-800">
+          <h3 className="text-[11px] font-bold text-[#1B6B3A] dark:text-green-500 uppercase mb-3 tracking-wider">Why This Result?</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-gray-50 dark:bg-[#0f1a13] p-3 border border-gray-100 dark:border-gray-800">
+              <div className="text-[8px] font-bold uppercase tracking-wider text-gray-400 mb-1">User Result</div>
+              <div className={`text-[11px] font-bold ${verdictPresentation.textClass}`}>{verdictPresentation.primaryLabel}</div>
+            </div>
+            <div className="rounded-xl bg-gray-50 dark:bg-[#0f1a13] p-3 border border-gray-100 dark:border-gray-800">
+              <div className="text-[8px] font-bold uppercase tracking-wider text-gray-400 mb-1">Rubric Verdict</div>
+              <div className="text-[10px] font-bold text-gray-700 dark:text-gray-200">{result.verdict}</div>
+            </div>
+            <div className="rounded-xl bg-gray-50 dark:bg-[#0f1a13] p-3 border border-gray-100 dark:border-gray-800">
+              <div className="text-[8px] font-bold uppercase tracking-wider text-gray-400 mb-1">Top Flag</div>
+              <div className="text-[10px] font-bold text-gray-700 dark:text-gray-200 truncate">{topFlaggedIngredient}</div>
+            </div>
+            <div className="rounded-xl bg-gray-50 dark:bg-[#0f1a13] p-3 border border-gray-100 dark:border-gray-800">
+              <div className="text-[8px] font-bold uppercase tracking-wider text-gray-400 mb-1">Certifier</div>
+              <div className="text-[10px] font-bold text-gray-700 dark:text-gray-200">{certStatus}</div>
+            </div>
+          </div>
+          <div className="mt-2 rounded-xl bg-gray-50 dark:bg-[#0f1a13] p-3 border border-gray-100 dark:border-gray-800">
+            <div className="text-[8px] font-bold uppercase tracking-wider text-gray-400 mb-1">Decision Rule</div>
+            <p className="text-[9px] leading-relaxed text-gray-600 dark:text-gray-300">{decisionRule}</p>
+            <p className="mt-2 text-[8px] font-bold uppercase tracking-wider text-gray-400">
+              Triggered rules: {triggeredRules.length ? triggeredRules.join(', ') : 'None'}
+            </p>
+          </div>
         </div>
 
         {result.flagged_ingredients && result.flagged_ingredients.length > 0 && (
@@ -360,12 +399,12 @@ export function Analysis() {
                       <Brain size={12} /> ML Implementation
                     </h4>
                     <div className="bg-blue-50 dark:bg-blue-900/10 rounded p-2 border border-blue-100 dark:border-blue-900/30 font-mono text-[8px] text-blue-800 dark:text-blue-300 space-y-1 overflow-x-auto">
-                      <div>Primary classifier: {mlAnalysis.provider || 'Halal Food Checker via RapidAPI'}</div>
-                      <div>Fallback model: TF-IDF weighted Multinomial Naive Bayes</div>
+                      <div>Primary classifier: {mlEvidence.primary_classifier || mlAnalysis.provider || 'Halal Food Checker via RapidAPI'}</div>
+                      <div>Fallback model: {mlEvidence.fallback_model || 'TF-IDF weighted Multinomial Naive Bayes'}</div>
                       <div>Generated verdict: {mlAnalysis.verdict || result.verdict || 'N/A'}</div>
                       <div>Product confidence: {result.confidence}%</div>
                       <div>Ingredient classifications: {result.ingredient_results?.length || 0}</div>
-                      <div>Optional-key mode: live APIs when configured, deterministic fallback when unavailable</div>
+                      <div>Optional-key mode: {mlEvidence.live_api_optional === false ? 'live API required' : 'live APIs when configured, deterministic fallback when unavailable'}</div>
                     </div>
                   </div>
 
@@ -374,7 +413,8 @@ export function Analysis() {
                       <Database size={12} /> Knowledge Base Design
                     </h4>
                     <div className="bg-gray-50 dark:bg-[#0f1a13] rounded p-2 border border-gray-100 dark:border-gray-800 font-mono text-[8px] text-gray-600 dark:text-gray-400 space-y-1 overflow-x-auto">
-                      <div>Canonical JSON rules: {CANONICAL_RULES.length}</div>
+                      <div>Source of truth: {kbEvidence.source_of_truth || 'backend/data/halal_rules.json'}</div>
+                      <div>Canonical JSON rules: {kbEvidence.rule_count || CANONICAL_RULES.length}</div>
                       <div>Triggered rule IDs: {triggeredRules.length ? triggeredRules.join(', ') : 'None'}</div>
                       <div>Certifying body status: {certStatus}</div>
                       {matchedRules.length > 0 ? (
@@ -394,7 +434,7 @@ export function Analysis() {
                       <ListChecks size={12} /> Reasoning Engine
                     </h4>
                     <div className="bg-amber-50 dark:bg-amber-900/10 rounded p-2 border border-amber-100 dark:border-amber-900/30 font-mono text-[8px] text-amber-800 dark:text-amber-300 space-y-1 overflow-x-auto">
-                      <div className="font-bold">Priority: HARAM &gt; DOUBTFUL &gt; UNKNOWN &gt; HALAL</div>
+                      <div className="font-bold">Priority: {(reasoningEvidence.priority || ['HARAM', 'DOUBTFUL', 'UNKNOWN', 'HALAL']).join(' > ')}</div>
                       <div>Rule-based status: {krrAnalysis.status || 'N/A'}</div>
                       <div>Selected verdict: {krrAnalysis.conflictResolution?.selectedVerdict || result.verdict}</div>
                       {logicPath.map((log: string, idx: number) => (
@@ -409,6 +449,7 @@ export function Analysis() {
                     </h4>
                     <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded p-2 border border-indigo-100 dark:border-indigo-900/30 font-mono text-[8px] text-indigo-800 dark:text-indigo-300">
                       <div className="mb-1">Input mode: {inputMode}</div>
+                      <div className="mb-1">Main route: {integrationEvidence.main_route || '/api/analyze'}</div>
                       <div className="mb-1">Flow: OCR/barcode/text -&gt; /api/analyze -&gt; ML + KBD + RE -&gt; final verdict</div>
                       <div className="mb-1">Final verdict: {result.verdict}</div>
                       {integrationLogic.map((log: string, idx: number) => (

@@ -3,6 +3,7 @@ import { ScanRecord, useAppStore } from '../store/useAppStore';
 import { Badge } from '../components/Badge';
 import { Trash2 } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
+import { getVerdictPresentation, verdictMatchesTone } from '../utils/verdictPresentation';
 
 export function History() {
   const { t } = useTranslation();
@@ -45,9 +46,9 @@ export function History() {
 
   const matchesFilter = (scan: ScanRecord) => {
     if (filter === 'ALL') return true;
-    if (filter === 'HALAL') return scan.verdict === 'HALAL' || scan.verdict === 'HALAL COMPLIANT';
-    if (filter === 'HARAM') return scan.verdict === 'HARAM' || scan.verdict === 'NON-COMPLIANT';
-    return scan.verdict === 'MASHBOOH' || scan.verdict === 'REQUIRES REVIEW';
+    if (filter === 'HALAL') return verdictMatchesTone(scan.verdict, 'halal');
+    if (filter === 'HARAM') return verdictMatchesTone(scan.verdict, 'haram');
+    return verdictMatchesTone(scan.verdict, 'review');
   };
 
   const filteredScans = scans.filter(matchesFilter);
@@ -107,11 +108,8 @@ export function History() {
           </div>
         ) : (
           filteredScans.map(item => {
-            const borderClass = item.verdict === 'HALAL' || item.verdict === 'HALAL COMPLIANT'
-              ? 'border-green-600' 
-              : item.verdict === 'HARAM' || item.verdict === 'NON-COMPLIANT'
-              ? 'border-red-600' 
-              : 'border-amber-600';
+            const verdict = getVerdictPresentation(item.verdict);
+            const borderClass = verdict.borderClass;
 
             return (
               <div key={item.id} className="relative bg-white dark:bg-[#1a2e22] p-4 rounded-2xl shadow-sm overflow-hidden flex flex-col gap-1 border border-gray-100 dark:border-gray-800 group">
@@ -119,6 +117,7 @@ export function History() {
                   <div className="flex-1 px-4">
                     <h3 className="font-bold text-sm text-[#1B6B3A] dark:text-green-400 truncate tracking-wide" title={item.name}>{item.name}</h3>
                     <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{item.brand}</p>
+                    <p className={`text-[8px] font-bold uppercase tracking-wider truncate mt-1 ${verdict.textClass}`}>{verdict.secondaryLabel}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge verdict={item.verdict} />

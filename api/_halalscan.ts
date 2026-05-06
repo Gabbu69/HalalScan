@@ -27,6 +27,8 @@ type KnowledgeBase = {
   certifying_bodies: CertifyingBody[];
 };
 
+export const RAG_GUARDRAIL = 'RAG explanation only: final product verdicts must still come from /api/analyze.';
+
 const statusPriority: Record<string, number> = {
   HARAM: 4,
   DOUBTFUL: 3,
@@ -60,6 +62,8 @@ const containsTerm = (source: string, term: string) => {
   const termNorm = normalizeEcodes(term).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`(^|[^a-z0-9])${termNorm}([^a-z0-9]|$)`, 'i').test(sourceNorm);
 };
+
+const tokenize = (value: string) => normalizeEcodes(value).match(/\b[a-z0-9]{2,}\b/g) || [];
 
 const extractENumbers = (source: string) => {
   const matches = normalizeEcodes(source).toUpperCase().match(/\bE\d{3,4}[A-Z]?\b/g);
@@ -202,6 +206,84 @@ export const splitIngredients = (text: string) => {
     .filter(item => item.length >= 2);
 };
 
+export const retrieveKnowledge = (query: string, limit = 5) => {
+  const kb = loadKnowledgeBase();
+  const normalizedQuery = normalizeEcodes(query);
+  const queryTokens = new Set(tokenize(query));
+  const queryENumbers = extractENumbers(query);
+
+  const scoredRules = kb.rules
+    .map(rule => {
+      let score = 0;
+      const matched_terms: string[] = [];
+
+      rule.e_numbers.forEach(code => {
+        if (queryENumbers.has(code.toUpperCase()) || containsTerm(normalizedQuery, code)) {
+          score += 12;
+          matched_terms.push(code);
+        }
+      });
+
+      rule.keywords.forEach(keyword => {
+        if (containsTerm(normalizedQuery, keyword)) {
+          score += 8;
+          matched_terms.push(keyword);
+        }
+      });
+
+      const haystackTokens = new Set(tokenize([rule.id, rule.title, rule.category, rule.status, rule.source].join(' ')));
+      const overlap = [...queryTokens].filter(token => haystackTokens.has(token));
+      score += Math.min(overlap.length, 4);
+
+      return {
+        score,
+        rule: {
+          id: rule.id,
+          title: rule.title,
+          status: rule.status,
+          category: rule.category,
+          reason: rule.reason,
+          source: rule.source,
+          matched_terms: matched_terms.slice(0, 8),
+        },
+      };
+    })
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(item => item.rule);
+
+  const certifyingBodies = kb.certifying_bodies.filter(body =>
+    [body.name, ...body.aliases].some(name => containsTerm(normalizedQuery, name))
+  );
+
+  return {
+    rules: scoredRules,
+    certifying_bodies: certifyingBodies,
+  };
+};
+
+export const buildRagChatResponse = (query: string, retrieval: ReturnType<typeof retrieveKnowledge>) => {
+  if (retrieval.rules.length === 0 && retrieval.certifying_bodies.length === 0) {
+    return [
+      'I could not find a direct match in the maintained halal knowledge base.',
+      'Try asking about a specific ingredient, E-number, additive, or certifying body.',
+      RAG_GUARDRAIL,
+    ].join('\n');
+  }
+
+  const lines = ['Knowledge-base matches:'];
+  retrieval.rules.forEach(rule => {
+    const terms = rule.matched_terms.length ? ` Matched: ${rule.matched_terms.join(', ')}.` : '';
+    lines.push(`- ${rule.id} [${rule.status}]: ${rule.title}. ${rule.reason} Source: ${rule.source}.${terms}`);
+  });
+  retrieval.certifying_bodies.forEach(body => {
+    lines.push(`- Certifier ${body.id}: ${body.name} (${body.country}). Recognized aliases: ${body.aliases.slice(0, 3).join(', ')}.`);
+  });
+  lines.push(RAG_GUARDRAIL);
+  return lines.join('\n');
+};
+
 export const extractIngredientFocusedText = (text: string) => {
   const normalized = (text || '').replace(/\r/g, '');
   if (!normalized.trim()) return '';
@@ -278,6 +360,34 @@ const findFirst = (data: any, keys: string[]): any => {
 };
 
 export const isRapidApiConfigured = () => Boolean(process.env.RAPIDAPI_KEY?.trim());
+
+const buildRubricEvidence = () => {
+  const kb = loadKnowledgeBase();
+  return {
+    contract_version: 'ml-kbd-re-si-v1',
+    mlImplementation: {
+      primary_classifier: 'RapidAPI Halal Food Checker',
+      fallback_model: 'TF-IDF weighted Multinomial Naive Bayes',
+      live_api_optional: true,
+      normalized_statuses: ['HALAL', 'HARAM', 'DOUBTFUL', 'UNKNOWN', 'UNAVAILABLE'],
+    },
+    knowledgeBaseDesign: {
+      source_of_truth: 'backend/data/halal_rules.json',
+      rule_count: kb.rules.length,
+      certifying_bodies: kb.certifying_bodies.map(body => body.name),
+      required_rule_fields: ['id', 'category', 'status', 'e_numbers', 'keywords', 'reason', 'source'],
+    },
+    reasoningEngine: {
+      priority: ['HARAM', 'DOUBTFUL', 'UNKNOWN', 'HALAL'],
+      exposes: ['facts', 'matchedRules', 'logicPath', 'conflictResolution', 'certificationCheck'],
+    },
+    systemIntegration: {
+      main_route: '/api/analyze',
+      input_modes: ['manual_text', 'barcode_openfoodfacts', 'ocr_text'],
+      deployment_targets: ['Flask local API', 'Vercel TypeScript Functions'],
+    },
+  };
+};
 
 export const classifyIngredient = async (ingredient: string) => {
   const cacheKey = ingredient.trim().toLowerCase();
@@ -488,6 +598,7 @@ export const analyzePayload = async (payload: any) => {
   }
 
   const triggeredRules = Array.from(new Set(ingredientResults.flatMap(row => row.matched_rules.map((rule: any) => rule.id)))).sort();
+  const rubricEvidence = buildRubricEvidence();
   const scan = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     created_at: new Date().toISOString(),
@@ -501,7 +612,9 @@ export const analyzePayload = async (payload: any) => {
     certifying_body: certification,
     ingredient_results: ingredientResults,
     triggered_rules: triggeredRules,
+    rubric_evidence: rubricEvidence,
     architectureDetails: {
+      rubricEvidence,
       krrAnalysis: {
         status: haramItems.length ? 'HARAM' : doubtfulItems.length || !certification.recognized ? 'MASHBOOH' : 'HALAL',
         confidence: confidence / 100,

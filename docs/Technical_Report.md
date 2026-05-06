@@ -1,6 +1,6 @@
 # Technical Report: HalalScan
 
-HalalScan implements the submitted DOCX architecture: React frontend, Flask backend, Google Vision OCR, RapidAPI Halal Food Checker, Open Food Facts barcode lookup, a canonical 60-rule knowledge base, deterministic reasoning, and SQLite scan history.
+HalalScan implements the submitted DOCX architecture: React frontend, Flask backend, Google Vision OCR, RapidAPI Halal Food Checker, Open Food Facts barcode lookup, a canonical 67-rule knowledge base, deterministic reasoning, and SQLite scan history.
 
 ## Architecture
 
@@ -44,7 +44,7 @@ Conflict priority is explicit: `HARAM > DOUBTFUL > UNKNOWN > HALAL`. The final r
 
 The canonical KB contains:
 
-- 60 structured rules across additives, pork, alcohol, animal sources, dairy, meat, seafood, plant ingredients, processing, and certification.
+- 67 structured rules across additives, pork, alcohol, animal sources, dairy, meat, seafood, plant ingredients, processing, and certification.
 - E-number taxonomy for high-risk additives such as `E120`, `E441`, `E471-E477`, `E481-E483`, `E542`, `E904`, and `E920`.
 - Recognized certifying bodies: JAKIM, MUI, IFANCA, HFA, and ESMA.
 - Per-rule fields: `id`, `category`, `title`, `status`, `e_numbers`, `keywords`, `reason`, and `source`.

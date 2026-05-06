@@ -12,7 +12,7 @@ HalalScan is an AI-assisted web application that helps users evaluate whether pa
 
 The project uses a hybrid artificial intelligence design. Machine learning support is used for ingredient classification through the Halal Food Checker API via RapidAPI, while knowledge-based reasoning is used to enforce explicit halal rules from a structured rule base. A local TF-IDF weighted Multinomial Naive Bayes classifier is also included as an offline fallback and evaluation artifact. The final verdict is produced by combining machine learning output, knowledge base rule matches, certifying-body validation, and deterministic conflict resolution.
 
-Current progress is strong and demonstrable. The React frontend, Flask backend, Vercel-compatible API adapter, canonical 60-rule knowledge base, reasoning engine, evaluation page, history persistence, and report evidence are already implemented. The app exposes rubric evidence directly in the user interface through a "Rubric Evidence Logs" section, making the ML Implementation, Knowledge Base Design, Reasoning Engine, and System Integration components visible during demonstration.
+Current progress is strong and demonstrable. The React frontend, Flask backend, Vercel-compatible API adapter, canonical 67-rule knowledge base, reasoning engine, evaluation page, history persistence, and report evidence are already implemented. The app exposes rubric evidence directly in the user interface through a "Rubric Evidence Logs" section, making the ML Implementation, Knowledge Base Design, Reasoning Engine, and System Integration components visible during demonstration.
 
 ## 2. Project Background and Problem
 
@@ -40,7 +40,7 @@ Specific objectives and current progress are:
 | Build a user-facing scanning and analysis app | Implemented in React with scanner, manual text, image, knowledge base, evaluation, history, and result views. |
 | Integrate OCR and barcode workflows | Implemented through Google Vision-compatible OCR endpoint and Open Food Facts barcode lookup. Optional-key fallback is supported. |
 | Implement an ML classification layer | Implemented through RapidAPI Halal Food Checker integration, status normalization, caching, and local Naive Bayes fallback. |
-| Design a halal knowledge base | Implemented as a canonical JSON rule base with 60 rules, E-number taxonomy, keyword matching, reasons, sources, and certifying bodies. |
+| Design a halal knowledge base | Implemented as a canonical JSON rule base with 67 rules, E-number taxonomy, keyword matching, reasons, sources, and certifying bodies. |
 | Build a reasoning engine | Implemented with deterministic priority logic: HARAM > DOUBTFUL > UNKNOWN > HALAL. |
 | Integrate all components | Implemented through `/api/analyze`, frontend analysis flow, backend Flask routes, Vercel API adapter, and SQLite history. |
 | Evaluate progress and output | Implemented with reproducible evaluation scripts, backend tests, serverless smoke tests, and build validation. |
@@ -124,7 +124,7 @@ The knowledge base is the rule-driven core of HalalScan. It is stored in `backen
 
 The current knowledge base includes:
 
-- 60 structured halal rules.
+- 67 structured halal rules.
 - Categories covering additives, pork, alcohol, animal sources, dairy, meat, seafood, plant ingredients, processing, and certification.
 - E-number rules for additives such as E120, E441, E471-E477, E481-E483, E542, E904, and E920.
 - Keyword matching for ingredient names such as pork, lard, gelatin, carmine, shellac, alcohol, rennet, whey, tallow, and natural flavors.
