@@ -191,7 +191,8 @@ Current reported results:
 | TypeScript check | Passing |
 | Canonical KR&R evaluation | 30/30 correct, 100.0% accuracy |
 | Local ML fallback evaluation | 36/36 correct, 100.0% accuracy |
-| Flask backend tests | 14/14 passing |
+| Flask backend tests | 21/21 passing |
+| Badge visual smoke test | Passing |
 | Vercel API smoke tests | Passing |
 | Production build | Passing with existing large chunk warning |
 

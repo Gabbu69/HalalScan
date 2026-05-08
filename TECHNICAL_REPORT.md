@@ -21,6 +21,8 @@ flowchart LR
 
 Legacy Gemini, Tesseract, and local Naive Bayes paths are retained only as fallback support. The primary architecture is Google Vision + RapidAPI + Knowledge-Based Reasoning.
 
+The chat assistant includes lightweight retrieval over the canonical rule base. This RAG path explains matching rule IDs and sources, but it does not override `/api/analyze` verdicts.
+
 ## Verdict Logic
 
 ```mermaid
@@ -46,9 +48,10 @@ Conflict priority is `HARAM > DOUBTFUL > UNKNOWN > HALAL`. The API response expo
 |---|---:|
 | Canonical KR&R dataset | 30/30 correct |
 | Local ML fallback holdout | 36/36 correct |
-| Backend tests | 14/14 passing |
+| Backend tests | 21/21 passing |
 | TypeScript check | Passing |
 | Vercel API smoke tests | Passing |
+| Badge visual smoke test | Passing |
 
 Run:
 
@@ -57,6 +60,7 @@ npm run lint
 npm run evaluate
 npm run test:backend
 npm run test:vercel-api
+npm run test:badges
 npm run build
 ```
 
@@ -66,3 +70,4 @@ npm run build
 - Certifying-body verification is list-based and does not authenticate official certificates.
 - Non-English labels may require translation.
 - Knowledge-base rules need expert review before production use.
+- The 100% evaluation scores are from curated classroom datasets and regression cases, not a production accuracy guarantee.

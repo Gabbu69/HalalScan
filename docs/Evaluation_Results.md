@@ -8,9 +8,10 @@ Verified locally on May 2, 2026. Live Google Vision and RapidAPI keys were not r
 |---|---:|---:|
 | Canonical KR&R engine | 30 curated product cases | 30/30 correct, 100.0% accuracy |
 | Local ML fallback | 36 holdout ingredient cases | 36/36 correct, 100.0% accuracy |
-| Flask backend tests | Rules, certifiers, OCR fallback, API fallback, history, verdict regressions | 14/14 passing |
+| Flask backend tests | Rules, certifiers, OCR fallback, API fallback, RAG, history, verdict regressions | 21/21 passing |
 | Vercel API smoke tests | Health, rules, analyze verdicts, OCR fallback, history | Passing |
 | TypeScript check | Frontend/serverless compile check | Passing |
+| Badge visual smoke test | User-facing verdict labels render as HALAL/HARAM/MASHBOOH | Passing |
 
 ## Rubric Evidence in the App
 
@@ -22,6 +23,8 @@ The Analysis result page exposes a **Rubric Evidence Logs** accordion with the f
 - **System Integration:** shows the input mode, `/api/analyze` processing flow, final verdict, and integration trace across OCR/barcode/text, ML, KB, and reasoning layers.
 
 The Knowledge Base page also displays each rule's status as a separate visible badge, so backend-loaded rules no longer depend on status text being embedded in the title.
+
+The Chat page uses lightweight RAG over the canonical rule base to explain matching rule IDs and sources. This is evidence support only; final product verdicts are still decided by `/api/analyze`.
 
 ## KR&R Evaluation
 
@@ -99,7 +102,23 @@ Backend tests validate:
 - Missing or unrecognized certifying bodies produce `REQUIRES REVIEW`.
 - Clean ingredients with recognized certification produce `HALAL COMPLIANT`.
 - Google Vision and RapidAPI no-credential paths stay deterministic.
+- RAG retrieves expected rules for `E120`, `gelatin`, and `JAKIM`, and returns a deterministic unknown-query fallback.
 - SQLite history persists scan results.
+
+## Challenge Cases
+
+| Case | Expected behavior |
+|---|---|
+| `E120` / carmine | `NON-COMPLIANT`, rule `R001` triggered |
+| `E1200` | Does not falsely trigger `R001` |
+| `gelatin, natural flavors` | `REQUIRES REVIEW`, source verification needed |
+| Missing certifying body | `REQUIRES REVIEW` even when ingredients are clean |
+| Unknown certifying logo | `REQUIRES REVIEW` with `UNRECOGNIZED` certifier status |
+| `porcine gelatin, rum` | `NON-COMPLIANT`, pork/alcohol rules triggered |
+| No usable ingredients | `REQUIRES REVIEW`, insufficient-data guard |
+| `JAKIM` chat query | RAG returns recognized certifier evidence |
+
+The perfect scores above are for curated classroom datasets and regression tests. They demonstrate reproducibility and rule coverage, not guaranteed real-world production accuracy.
 
 ## Live API Validation
 

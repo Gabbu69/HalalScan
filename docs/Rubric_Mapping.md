@@ -7,7 +7,7 @@
 | 3 | Knowledge Base Design | 20% | Canonical `backend/data/halal_rules.json` contains 67 structured rules, E-number taxonomy, source labels, and JAKIM/MUI/IFANCA/HFA/ESMA certifier records. The Knowledge page displays status badges for backend-loaded rules, while Analysis shows triggered rule IDs and matched sources. | 19/20 |
 | 4 | Reasoning Engine | 15% | Deterministic conflict priority `HARAM > DOUBTFUL > UNKNOWN > HALAL`; response exposes facts, matched rules, certification check, conflict resolution, and logic path. The Analysis page labels this explicitly under Reasoning Engine. | 14/15 |
 | 5 | System Integration | 15% | `/api/analyze` combines OCR/barcode/text input, Open Food Facts, RapidAPI classification, KB lookup, certifier verification, history persistence, and explainable output. The Analysis page now shows the input mode and integration flow; Vercel adapter mirrors the Flask route behavior. | 14/15 |
-| 6 | Technical Report & Presentation | 15% | Evaluation report includes metrics, confusion matrices, command evidence, rubric evidence logs, architecture and reasoning diagrams, limitations, and rubric mapping. | 13/15 |
+| 6 | Technical Report & Presentation | 15% | Evaluation report includes metrics, confusion matrices, command evidence, rubric evidence logs, architecture and reasoning diagrams, limitations, RAG explanation notes, badge visual checks, and rubric mapping. | 14/15 |
 |  | **Estimated Total** | **100%** | Stronger, proposal-aligned implementation and evidence package. | **91/100** |
 
 ## Evidence Commands
@@ -17,6 +17,7 @@ npm run lint
 npm run evaluate
 npm run test:backend
 npm run test:vercel-api
+npm run test:badges
 npm run build
 ```
 

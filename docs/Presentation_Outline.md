@@ -34,19 +34,22 @@
 ## Slide 7: Evaluation Results
 - KR&R dataset: 30/30 correct, 100.0% accuracy.
 - Local ML fallback holdout: 36/36 correct, 100.0% accuracy.
-- Flask backend tests: 14/14 passing.
+- Flask backend tests: 21/21 passing.
 - Vercel API smoke tests: passing.
+- Badge visual smoke test: passing.
 
 ## Slide 8: Explainability Demo
 - Show a halal product with recognized certifier.
 - Show `E120` or pork derivative forcing `NON-COMPLIANT`.
 - Show gelatin/natural flavors forcing `REQUIRES REVIEW`.
 - Point to facts, matched rules, conflict resolution, and certifier check in the result.
+- Ask Chat about `E120` or `gelatin` and point to RAG rule citations.
 
 ## Slide 9: Limitations
 - Google Vision and RapidAPI require credentials for live external calls.
 - Certifier matching checks a maintained trusted list, not official certificate authenticity.
 - Non-English labels and school-of-law differences are routed outside the current scope.
+- 100% evaluation scores are based on curated classroom test sets, not production certification guarantees.
 
 ## Slide 10: Conclusion
 - HalalScan demonstrates a practical hybrid AI system: ML/API classification handles ingredient analysis, while deterministic knowledge-based reasoning keeps compliance decisions explainable and defensible.

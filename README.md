@@ -83,9 +83,15 @@ npm run lint
 npm run evaluate
 npm run test:backend
 npm run test:vercel-api
+npm run test:badges
+npm run build
 ```
 
 `npm run test:backend` uses mocked/no-credential paths for Google Vision, RapidAPI, OpenFoodFacts, and SQLite behavior.
+
+## RAG Assistant
+
+The chat assistant uses lightweight retrieval over `backend/data/halal_rules.json` to explain ingredients, E-numbers, and certifying bodies with rule IDs and sources. RAG is used for explanation only; final product verdicts still come from `/api/analyze`.
 
 ## Main API
 

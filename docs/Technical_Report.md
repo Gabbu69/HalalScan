@@ -65,8 +65,9 @@ Current reproducible results:
 |---|---:|
 | `npm run lint` | Passing |
 | `npm run evaluate` | KR&R 30/30, local ML fallback 36/36 |
-| `npm run test:backend` | 14/14 passing |
+| `npm run test:backend` | 21/21 passing |
 | `npm run test:vercel-api` | Passing |
+| `npm run test:badges` | Passing |
 
 ## Interfaces
 
