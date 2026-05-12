@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { Search, Camera, Loader2, RefreshCw, X, Check } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useTranslation } from '../hooks/useTranslation';
@@ -8,7 +8,6 @@ import { useTranslation } from '../hooks/useTranslation';
 export function Scanner() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [manualText, setManualText] = useState('');
-  const [certifyingBody, setCertifyingBody] = useState('');
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [imageProcessingStep, setImageProcessingStep] = useState('Processing Photo...');
   const [showOcrReview, setShowOcrReview] = useState(false);
@@ -37,15 +36,34 @@ export function Scanner() {
 
         const config = { 
           fps: 10, 
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => ({
+            width: Math.floor(Math.min(viewfinderWidth * 0.9, 340)),
+            height: Math.floor(Math.min(viewfinderHeight * 0.35, 180))
+          }),
+          aspectRatio: 1.777,
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.CODE_93,
+            Html5QrcodeSupportedFormats.ITF,
+            Html5QrcodeSupportedFormats.CODABAR,
+            Html5QrcodeSupportedFormats.QR_CODE
+          ]
         };
 
         const successCallback = (decodedText: string) => {
+          const barcode = decodedText.trim();
+          if (!barcode) return;
           html5QrCode.stop().then(() => {
-            navigate(`/analysis?barcode=${decodedText}`);
+            setPendingCertifyingBody('');
+            navigate(`/analysis?barcode=${encodeURIComponent(barcode)}`);
           }).catch(() => {
-            navigate(`/analysis?barcode=${decodedText}`);
+            setPendingCertifyingBody('');
+            navigate(`/analysis?barcode=${encodeURIComponent(barcode)}`);
           });
         };
 
@@ -88,12 +106,13 @@ export function Scanner() {
 
   const handleManualSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (manualBarcode.trim().length < 3) {
+    const barcode = manualBarcode.replace(/\s+/g, '');
+    if (barcode.length < 3) {
       alert("Enter a valid barcode");
       return;
     }
-    setPendingCertifyingBody(certifyingBody.trim());
-    navigate(`/analysis?barcode=${manualBarcode.trim()}`);
+    setPendingCertifyingBody('');
+    navigate(`/analysis?barcode=${encodeURIComponent(barcode)}`);
   };
 
   const handleManualTextSubmit = (e?: React.FormEvent) => {
@@ -103,7 +122,7 @@ export function Scanner() {
       return;
     }
     setPendingAnalysisText(manualText.trim());
-    setPendingCertifyingBody(certifyingBody.trim());
+    setPendingCertifyingBody('');
     navigate('/analysis?type=text');
   };
 
@@ -121,7 +140,7 @@ export function Scanner() {
 
   const handleAnalyzeReviewedPhoto = () => {
     setPendingAnalysisImageOcrText(reviewOcrText.trim() || null);
-    setPendingCertifyingBody(certifyingBody.trim());
+    setPendingCertifyingBody('');
     navigate('/analysis?type=image');
   };
 
@@ -301,7 +320,7 @@ export function Scanner() {
         )}
         
         {/* Target Marker Overlay */}
-        <div className="absolute top-[30%] left-1/2 -translate-x-1/2 w-[250px] h-[250px] pointer-events-none z-10">
+        <div className="absolute top-[30%] left-1/2 -translate-x-1/2 w-[82%] max-w-[340px] h-[160px] pointer-events-none z-10">
           {/* Animated Corners */}
           <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#C9A84C] opacity-80 rounded-tl-xl animate-pulse"></div>
           <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-[#C9A84C] opacity-80 rounded-tr-xl animate-pulse"></div>
@@ -394,23 +413,6 @@ export function Scanner() {
               )}
             </button>
 
-            <div className="flex flex-col gap-2">
-              <input
-                className="w-full bg-white/10 rounded-xl px-4 py-3 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
-                placeholder="Certifying body (JAKIM, MUI, IFANCA, HFA, ESMA)"
-                value={certifyingBody}
-                list="certifying-body-options"
-                onChange={(e) => setCertifyingBody(e.target.value)}
-              />
-              <datalist id="certifying-body-options">
-                <option value="JAKIM" />
-                <option value="MUI" />
-                <option value="IFANCA" />
-                <option value="HFA" />
-                <option value="ESMA" />
-              </datalist>
-            </div>
-
             <div className="flex items-center gap-3 w-full">
                <div className="h-px bg-white/10 flex-1"></div>
                <span className="text-[10px] text-white/40 font-bold tracking-widest uppercase">{t('scanner.or_enter_barcode') || 'Barcode or Text'}</span>
@@ -421,9 +423,11 @@ export function Scanner() {
               <input
                 className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
                 placeholder={t('scanner.placeholder') || "e.g. 3017620..."}
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={manualBarcode}
-                onChange={(e) => setManualBarcode(e.target.value)}
+                onChange={(e) => setManualBarcode(e.target.value.replace(/[^\d]/g, ''))}
               />
               <button
                 type="submit"
