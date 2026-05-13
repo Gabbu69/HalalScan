@@ -8,7 +8,7 @@ import { useTranslation } from '../hooks/useTranslation';
 const SLIDES = [
   {
     title: 'Scan. Verify. Trust.',
-    text: 'Instantly check if a product is Halal, Haram, or Mashbooh by scanning its barcode. (Configurable in settings for general dietary needs).',
+    text: 'Instantly check if a product is Halal or Haram by scanning its barcode, while keeping doubtful ingredient evidence visible for review.',
     icon: <Scan size={120} className="text-[var(--color-primary)]" />
   },
   {

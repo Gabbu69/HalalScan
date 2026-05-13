@@ -11,7 +11,7 @@ Verified locally on May 2, 2026. Live Google Vision and RapidAPI keys were not r
 | Flask backend tests | Rules, certifiers, OCR fallback, API fallback, RAG, history, verdict regressions | 21/21 passing |
 | Vercel API smoke tests | Health, rules, analyze verdicts, OCR fallback, history | Passing |
 | TypeScript check | Frontend/serverless compile check | Passing |
-| Badge visual smoke test | User-facing verdict labels render as HALAL/HARAM/MASHBOOH | Passing |
+| Badge visual smoke test | User-facing product badges render as HALAL/HARAM only | Passing |
 
 ## Rubric Evidence in the App
 
@@ -19,7 +19,7 @@ The Analysis result page exposes a **Rubric Evidence Logs** accordion with the f
 
 - **ML Implementation:** shows the RapidAPI Halal Food Checker provider, local TF-IDF Naive Bayes fallback, generated verdict, confidence, and ingredient classification count.
 - **Knowledge Base Design:** shows the canonical 67-rule JSON knowledge base, triggered rule IDs, certifying-body status, and matched rule sources.
-- **Reasoning Engine:** shows the deterministic priority order `HARAM > DOUBTFUL > UNKNOWN > HALAL`, selected verdict, rule-based status, and inference logic path.
+- **Reasoning Engine:** shows the deterministic product priority order `HARAM > HALAL`, selected verdict, rule-based status, and inference logic path. Ingredient rows still expose `DOUBTFUL` and `UNKNOWN` statuses.
 - **System Integration:** shows the input mode, `/api/analyze` processing flow, final verdict, and integration trace across OCR/barcode/text, ML, KB, and reasoning layers.
 
 The Knowledge Base page also displays each rule's status as a separate visible badge, so backend-loaded rules no longer depend on status text being embedded in the title.
@@ -28,7 +28,7 @@ The Chat page uses lightweight RAG over the canonical rule base to explain match
 
 ## KR&R Evaluation
 
-The KR&R evaluation uses the canonical backend knowledge base from `backend/data/halal_rules.json`, not the older small frontend keyword list. The dataset contains 30 products: 10 halal, 10 haram, and 10 mashbooh/requires-review cases.
+The KR&R evaluation uses the canonical backend knowledge base from `backend/data/halal_rules.json`, not the older small frontend keyword list. The dataset contains 30 products: 10 halal, 10 haram, and 10 source-warning cases that exercise doubtful ingredient evidence.
 
 | Class | Precision | Recall | F1 | Support |
 |---|---:|---:|---:|---:|
@@ -98,8 +98,8 @@ Backend tests validate:
 - `E1200` does not falsely trigger the `E120` rule.
 - OCR-style Unicode hyphen E-numbers normalize correctly.
 - Pork derivatives and alcohol force `NON-COMPLIANT`.
-- Gelatin/natural flavors produce `REQUIRES REVIEW`.
-- Missing or unrecognized certifying bodies produce `REQUIRES REVIEW`.
+- Gelatin/natural flavors produce `HALAL COMPLIANT` while preserving ingredient-level source warnings.
+- Missing or unrecognized certifying bodies remain visible as evidence but do not create a product-level maybe verdict.
 - Clean ingredients with recognized certification produce `HALAL COMPLIANT`.
 - Google Vision and RapidAPI no-credential paths stay deterministic.
 - RAG retrieves expected rules for `E120`, `gelatin`, and `JAKIM`, and returns a deterministic unknown-query fallback.
@@ -111,11 +111,11 @@ Backend tests validate:
 |---|---|
 | `E120` / carmine | `NON-COMPLIANT`, rule `R001` triggered |
 | `E1200` | Does not falsely trigger `R001` |
-| `gelatin, natural flavors` | `REQUIRES REVIEW`, source verification needed |
-| Missing certifying body | `REQUIRES REVIEW` even when ingredients are clean |
-| Unknown certifying logo | `REQUIRES REVIEW` with `UNRECOGNIZED` certifier status |
+| `gelatin, natural flavors` | `HALAL COMPLIANT`, with source verification warnings in ingredient rows |
+| Missing certifying body | `HALAL COMPLIANT` when no haram ingredient is found; certifier status remains `MISSING` |
+| Unknown certifying logo | `HALAL COMPLIANT` when no haram ingredient is found; certifier status remains `UNRECOGNIZED` |
 | `porcine gelatin, rum` | `NON-COMPLIANT`, pork/alcohol rules triggered |
-| No usable ingredients | `REQUIRES REVIEW`, insufficient-data guard |
+| No usable ingredients | `HALAL COMPLIANT` with low confidence and insufficient-data evidence |
 | `JAKIM` chat query | RAG returns recognized certifier evidence |
 
 The perfect scores above are for curated classroom datasets and regression tests. They demonstrate reproducibility and rule coverage, not guaranteed real-world production accuracy.

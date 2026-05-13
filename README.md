@@ -16,8 +16,9 @@ HalalScan is a React + Flask web application for halal compliance screening. It 
 ## Verdict Model
 
 - `NON-COMPLIANT`: any ingredient is haram by API or knowledge-base rule.
-- `HALAL COMPLIANT`: all ingredients are clear and the certifying body is recognized.
-- `REQUIRES REVIEW`: any ingredient is doubtful/unknown, or the certifying body is missing/unrecognized.
+- `HALAL COMPLIANT`: no haram ingredient is detected.
+
+Ingredient-level rows may still show `DOUBTFUL` or `UNKNOWN` when a source needs verification. Those warnings remain visible as evidence, but they do not create a product-level "maybe" verdict.
 
 ## Setup
 
@@ -74,7 +75,7 @@ RAPIDAPI_KEY=your_rapidapi_key
 GOOGLE_APPLICATION_CREDENTIALS_JSON={"type":"service_account",...}
 ```
 
-If Google Vision is not configured, image scans still fall back to browser OCR for images. If RapidAPI is not configured, the knowledge base still performs deterministic reasoning and marks unresolved ingredients for review.
+If Google Vision is not configured, image scans still fall back to browser OCR for images. If RapidAPI is not configured, the knowledge base still performs deterministic reasoning and keeps unresolved ingredients visible in the ingredient-level evidence.
 
 ## Tests
 

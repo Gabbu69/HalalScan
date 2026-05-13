@@ -130,7 +130,7 @@ def _build_rubric_evidence() -> dict[str, Any]:
             "required_rule_fields": ["id", "category", "status", "e_numbers", "keywords", "reason", "source"],
         },
         "reasoningEngine": {
-            "priority": ["HARAM", "DOUBTFUL", "UNKNOWN", "HALAL"],
+            "priority": ["HARAM", "HALAL"],
             "exposes": ["facts", "matchedRules", "logicPath", "conflictResolution", "certificationCheck"],
         },
         "systemIntegration": {
@@ -247,9 +247,8 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 }
             )
 
-    statuses = [row["status"] for row in ingredient_results]
     haram_items = [row for row in ingredient_results if row["status"] == "HARAM"]
-    doubtful_items = [row for row in ingredient_results if row["status"] in {"DOUBTFUL", "UNKNOWN"}]
+    warning_items = [row for row in ingredient_results if row["status"] in {"DOUBTFUL", "UNKNOWN"}]
     rubric_evidence = _build_rubric_evidence()
 
     if haram_items:
@@ -258,23 +257,20 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
         reason = "One or more ingredients were classified as haram by the knowledge base or Halal Food Checker API."
         recommendation = "Avoid this product unless a qualified halal authority provides a corrected ingredient source."
         logic_path.append("Verdict rule: any HARAM ingredient produces NON-COMPLIANT.")
-    elif doubtful_items or not cert_result["recognized"]:
-        final_verdict = "REQUIRES REVIEW"
-        confidence = 72 if doubtful_items else 68
-        if doubtful_items:
-            reason = "One or more ingredients are doubtful, unknown, or require source verification."
-        else:
-            reason = "Ingredients did not trigger haram or doubtful rules, but the certifying body is missing or unrecognized."
-        recommendation = "Check for a recognized halal certificate or contact the manufacturer before consuming."
-        logic_path.append("Verdict rule: doubtful/unknown ingredients or missing/unrecognized certification require review.")
     else:
         final_verdict = "HALAL COMPLIANT"
-        confidence = 94
-        reason = "All ingredients were classified as halal or clear, and the certifying body is recognized."
-        recommendation = "Product is compliant based on the maintained ingredient rules and certifying-body list."
-        logic_path.append("Verdict rule: all ingredients halal plus recognized certification produces HALAL COMPLIANT.")
+        confidence = 84 if warning_items or not cert_result["recognized"] else 94
+        if warning_items:
+            reason = "No haram ingredient was detected. Some ingredients may still need source verification, but the user-facing result is halal unless a haram trigger is found."
+        else:
+            reason = "No haram ingredient was detected in the maintained ingredient rules or Halal Food Checker API."
+        if cert_result["recognized"]:
+            recommendation = "Product is treated as halal by this scan because no haram ingredient was found."
+        else:
+            recommendation = "Product is treated as halal by ingredient screening because no haram ingredient was found. Check certification separately if needed."
+        logic_path.append("Verdict rule: no HARAM ingredient produces HALAL COMPLIANT.")
 
-    flagged = [row["ingredient"] for row in ingredient_results if row["status"] in {"HARAM", "DOUBTFUL", "UNKNOWN"}]
+    flagged = [row["ingredient"] for row in haram_items]
     scan = {
         "id": str(uuid.uuid4()),
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -298,22 +294,21 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "architectureDetails": {
             "rubricEvidence": rubric_evidence,
             "krrAnalysis": {
-                "status": "HARAM" if haram_items else "MASHBOOH" if doubtful_items or not cert_result["recognized"] else "HALAL",
+                "status": "HARAM" if haram_items else "HALAL",
                 "confidence": confidence / 100,
                 "flags": [
                     {
                         "ingredient": row["ingredient"],
-                        "type": "HARAM" if row["status"] == "HARAM" else "MASHBOOH",
+                        "type": "HARAM",
                         "ruleId": ",".join(row["rule_ids"]) if row["rule_ids"] else "UNRESOLVED",
                     }
-                    for row in ingredient_results
-                    if row["status"] in {"HARAM", "DOUBTFUL", "UNKNOWN"}
+                    for row in haram_items
                 ],
                 "logicPath": logic_path,
                 "facts": fact_trace,
                 "matchedRules": matched_rule_trace,
                 "conflictResolution": {
-                    "priority": ["HARAM", "DOUBTFUL", "UNKNOWN", "HALAL"],
+                    "priority": ["HARAM", "HALAL"],
                     "selectedVerdict": final_verdict,
                     "reason": reason,
                 },
@@ -326,7 +321,7 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
             },
             "mlAnalysis": {
                 "provider": "RapidAPI Halal Food Checker",
-                "verdict": "HARAM" if "HARAM" in statuses else "MASHBOOH" if doubtful_items else "HALAL",
+                "verdict": "HARAM" if haram_items else "HALAL",
                 "ingredient_results": ingredient_results,
             },
             "integrationLogic": logic_path,

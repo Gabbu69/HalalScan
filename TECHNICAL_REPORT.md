@@ -32,11 +32,10 @@ flowchart TD
   B --> D[Priority resolver]
   C --> D
   D -->|Any HARAM| N[NON-COMPLIANT]
-  D -->|Any DOUBTFUL/UNKNOWN or missing certifier| R[REQUIRES REVIEW]
-  D -->|All clear + recognized certifier| H[HALAL COMPLIANT]
+  D -->|No HARAM| H[HALAL COMPLIANT]
 ```
 
-Conflict priority is `HARAM > DOUBTFUL > UNKNOWN > HALAL`. The API response exposes the logic path, matched rules, facts, conflict resolution, certification check, and evaluation notes under `architectureDetails.krrAnalysis`.
+Product-level conflict priority is `HARAM > HALAL`: any haram ingredient produces `NON-COMPLIANT`, otherwise the product result is `HALAL COMPLIANT`. Ingredient-level evidence can still show `DOUBTFUL` or `UNKNOWN`, and certifying-body status is shown as supporting evidence rather than a product-level "maybe" trigger. The API response exposes the logic path, matched rules, facts, conflict resolution, certification check, and evaluation notes under `architectureDetails.krrAnalysis`.
 
 ## Knowledge Base
 

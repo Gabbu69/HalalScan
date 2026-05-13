@@ -254,9 +254,7 @@ export function Analysis() {
   const topFlaggedIngredient = result.flagged_ingredients?.[0] || 'None';
   const decisionRule = verdictPresentation.tone === 'haram'
     ? 'Any haram ingredient forces a HARAM user result.'
-    : verdictPresentation.tone === 'review'
-      ? 'Doubtful ingredients, unknown sources, or missing certification require review.'
-      : 'All ingredients are clear and the certifier is recognized.';
+    : 'No haram ingredient was found, so the user result is HALAL.';
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F9F5F0] dark:bg-[var(--color-dark-bg)] p-5 w-full font-nunito text-[#1a1a1a]">

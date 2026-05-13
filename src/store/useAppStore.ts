@@ -53,7 +53,7 @@ interface AppState {
   setPendingAnalysisText: (text: string | null) => void;
   setPendingCertifyingBody: (text: string) => void;
 
-  getStats: () => { total: number; halal: number; haram: number; mashbooh: number };
+  getStats: () => { total: number; halal: number; haram: number };
 }
 
 export const useAppStore = create<AppState>()(
@@ -105,9 +105,8 @@ export const useAppStore = create<AppState>()(
         const scans = get().scans;
         return {
           total: scans.length,
-          halal: scans.filter(s => s.verdict === 'HALAL' || s.verdict === 'HALAL COMPLIANT').length,
+          halal: scans.filter(s => s.verdict !== 'HARAM' && s.verdict !== 'NON-COMPLIANT').length,
           haram: scans.filter(s => s.verdict === 'HARAM' || s.verdict === 'NON-COMPLIANT').length,
-          mashbooh: scans.filter(s => s.verdict === 'MASHBOOH' || s.verdict === 'REQUIRES REVIEW').length,
         };
       }
     }),

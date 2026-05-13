@@ -19,7 +19,7 @@ Expected result: `HALAL COMPLIANT`, displayed to users as `HALAL`.
 
 Say:
 
-"The ML layer checks the ingredients, and the knowledge base finds only clear halal ingredient categories. The certifying body is recognized as JAKIM, so the reasoning engine returns halal compliant."
+"The ML layer checks the ingredients, and the knowledge base finds no haram trigger. The certifying body is recognized as JAKIM and appears as supporting evidence, so the product badge is halal."
 
 Point to:
 
@@ -48,9 +48,10 @@ Point to:
 - User badge: `HARAM`
 - Triggered rule: `R001`
 - Flagged ingredient: `E120`
-- Priority: `HARAM > DOUBTFUL > UNKNOWN > HALAL`
+- Product priority: `HARAM > HALAL`
+- Ingredient rows can still show `DOUBTFUL` or `UNKNOWN`
 
-## Demo Flow 3: Requires Review
+## Demo Flow 3: No Haram Detected, With Ingredient Warnings
 
 Input:
 
@@ -59,17 +60,17 @@ Ingredients: sugar, gelatin, natural flavors
 Certifying body: IFANCA
 ```
 
-Expected result: `REQUIRES REVIEW`, displayed to users as `MASHBOOH`.
+Expected result: `HALAL COMPLIANT`, displayed to users as `HALAL`.
 
 Say:
 
-"Gelatin and natural flavors are source-dependent. The system does not assume they are halal or haram without source evidence, so the reasoning engine returns requires review."
+"Gelatin and natural flavors are source-dependent, so the ingredient table still shows warning evidence. But because no haram rule fired, the product-level result stays halal instead of going to a maybe side."
 
 Point to:
 
-- User badge: `MASHBOOH`
+- User badge: `HALAL`
 - Triggered rule: `R002`
-- Recommendation text
+- Ingredient-level `DOUBTFUL` classification
 - Ingredient-level classifications
 
 ## Knowledge Base Demo

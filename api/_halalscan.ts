@@ -378,7 +378,7 @@ const buildRubricEvidence = () => {
       required_rule_fields: ['id', 'category', 'status', 'e_numbers', 'keywords', 'reason', 'source'],
     },
     reasoningEngine: {
-      priority: ['HARAM', 'DOUBTFUL', 'UNKNOWN', 'HALAL'],
+      priority: ['HARAM', 'HALAL'],
       exposes: ['facts', 'matchedRules', 'logicPath', 'conflictResolution', 'certificationCheck'],
     },
     systemIntegration: {
@@ -568,9 +568,9 @@ export const analyzePayload = async (payload: any) => {
   }
 
   const haramItems = ingredientResults.filter(row => row.status === 'HARAM');
-  const doubtfulItems = ingredientResults.filter(row => row.status === 'DOUBTFUL' || row.status === 'UNKNOWN');
+  const warningItems = ingredientResults.filter(row => row.status === 'DOUBTFUL' || row.status === 'UNKNOWN');
 
-  let finalVerdict: 'NON-COMPLIANT' | 'REQUIRES REVIEW' | 'HALAL COMPLIANT';
+  let finalVerdict: 'NON-COMPLIANT' | 'HALAL COMPLIANT';
   let confidence: number;
   let reason: string;
   let recommendation: string;
@@ -581,20 +581,16 @@ export const analyzePayload = async (payload: any) => {
     reason = 'One or more ingredients were classified as haram by the knowledge base or Halal Food Checker API.';
     recommendation = 'Avoid this product unless a qualified halal authority provides a corrected ingredient source.';
     logicPath.push('Verdict rule: any HARAM ingredient produces NON-COMPLIANT.');
-  } else if (doubtfulItems.length > 0 || !certification.recognized) {
-    finalVerdict = 'REQUIRES REVIEW';
-    confidence = doubtfulItems.length > 0 ? 72 : 68;
-    reason = doubtfulItems.length > 0
-      ? 'One or more ingredients are doubtful, unknown, or require source verification.'
-      : 'Ingredients did not trigger haram or doubtful rules, but the certifying body is missing or unrecognized.';
-    recommendation = 'Check for a recognized halal certificate or contact the manufacturer before consuming.';
-    logicPath.push('Verdict rule: doubtful/unknown ingredients or missing/unrecognized certification require review.');
   } else {
     finalVerdict = 'HALAL COMPLIANT';
-    confidence = 94;
-    reason = 'All ingredients were classified as halal or clear, and the certifying body is recognized.';
-    recommendation = 'Product is compliant based on the maintained ingredient rules and certifying-body list.';
-    logicPath.push('Verdict rule: all ingredients halal plus recognized certification produces HALAL COMPLIANT.');
+    confidence = warningItems.length > 0 || !certification.recognized ? 84 : 94;
+    reason = warningItems.length > 0
+      ? 'No haram ingredient was detected. Some ingredients may still need source verification, but the user-facing result is halal unless a haram trigger is found.'
+      : 'No haram ingredient was detected in the maintained ingredient rules or Halal Food Checker API.';
+    recommendation = certification.recognized
+      ? 'Product is treated as halal by this scan because no haram ingredient was found.'
+      : 'Product is treated as halal by ingredient screening because no haram ingredient was found. Check certification separately if needed.';
+    logicPath.push('Verdict rule: no HARAM ingredient produces HALAL COMPLIANT.');
   }
 
   const triggeredRules = Array.from(new Set(ingredientResults.flatMap(row => row.matched_rules.map((rule: any) => rule.id)))).sort();
@@ -606,7 +602,7 @@ export const analyzePayload = async (payload: any) => {
     confidence,
     reason,
     recommendation,
-    flagged_ingredients: ingredientResults.filter(row => ['HARAM', 'DOUBTFUL', 'UNKNOWN'].includes(row.status)).map(row => row.ingredient),
+    flagged_ingredients: haramItems.map(row => row.ingredient),
     ingredients: ingredientsText || rawIngredientsText,
     product,
     certifying_body: certification,
@@ -616,20 +612,18 @@ export const analyzePayload = async (payload: any) => {
     architectureDetails: {
       rubricEvidence,
       krrAnalysis: {
-        status: haramItems.length ? 'HARAM' : doubtfulItems.length || !certification.recognized ? 'MASHBOOH' : 'HALAL',
+        status: haramItems.length ? 'HARAM' : 'HALAL',
         confidence: confidence / 100,
-        flags: ingredientResults
-          .filter(row => ['HARAM', 'DOUBTFUL', 'UNKNOWN'].includes(row.status))
-          .map(row => ({
+        flags: haramItems.map(row => ({
             ingredient: row.ingredient,
-            type: row.status === 'HARAM' ? 'HARAM' : 'MASHBOOH',
+            type: 'HARAM',
             ruleId: row.rule_ids.join(',') || 'UNRESOLVED',
           })),
         logicPath,
         facts: factTrace,
         matchedRules: matchedRuleTrace,
         conflictResolution: {
-          priority: ['HARAM', 'DOUBTFUL', 'UNKNOWN', 'HALAL'],
+          priority: ['HARAM', 'HALAL'],
           selectedVerdict: finalVerdict,
           reason,
         },
@@ -642,7 +636,7 @@ export const analyzePayload = async (payload: any) => {
       },
       mlAnalysis: {
         provider: 'RapidAPI Halal Food Checker',
-        verdict: haramItems.length ? 'HARAM' : doubtfulItems.length ? 'MASHBOOH' : 'HALAL',
+        verdict: haramItems.length ? 'HARAM' : 'HALAL',
         ingredient_results: ingredientResults,
       },
       integrationLogic: logicPath,

@@ -28,8 +28,9 @@
 ## Slide 6: Reasoning Engine
 - Ingredient facts are normalized and matched against canonical rules.
 - RapidAPI results and KB results are merged.
-- Conflict priority: `HARAM > DOUBTFUL > UNKNOWN > HALAL`.
-- Final labels: `HALAL COMPLIANT`, `NON-COMPLIANT`, `REQUIRES REVIEW`.
+- Product priority: `HARAM > HALAL`.
+- Final product labels: `HALAL COMPLIANT`, `NON-COMPLIANT`.
+- Ingredient-level evidence can still show `DOUBTFUL` or `UNKNOWN`.
 
 ## Slide 7: Evaluation Results
 - KR&R dataset: 30/30 correct, 100.0% accuracy.
@@ -41,7 +42,7 @@
 ## Slide 8: Explainability Demo
 - Show a halal product with recognized certifier.
 - Show `E120` or pork derivative forcing `NON-COMPLIANT`.
-- Show gelatin/natural flavors forcing `REQUIRES REVIEW`.
+- Show gelatin/natural flavors staying `HALAL COMPLIANT` while ingredient rows explain source-dependent warnings.
 - Point to facts, matched rules, conflict resolution, and certifier check in the result.
 - Ask Chat about `E120` or `gelatin` and point to RAG rule citations.
 

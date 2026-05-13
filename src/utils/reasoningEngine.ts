@@ -124,7 +124,7 @@ export const runRuleBasedInference = (ingredientsText: string): InferenceResult 
     }
   });
 
-  logicPath.push('[CONFLICT RESOLUTION] Evaluating derived facts against priority tiers (HARAM > DOUBTFUL/MASHBOOH > UNKNOWN > HALAL).');
+  logicPath.push('[CONFLICT RESOLUTION] Evaluating derived facts. Product priority is HARAM > HALAL; DOUBTFUL/MASHBOOH remains ingredient-level evidence.');
 
   const strongestResult = ingredientResults.reduce<CanonicalRuleStatus>((strongest, result) =>
     STATUS_PRIORITY[result.status] > STATUS_PRIORITY[strongest] ? result.status : strongest
@@ -144,7 +144,7 @@ export const runRuleBasedInference = (ingredientsText: string): InferenceResult 
   } else if (hasDoubtful) {
     finalStatus = 'MASHBOOH';
     confidence = 0.9;
-    logicPath.push('Resolution: DOUBTFUL/MASHBOOH tier prioritized. Verdict: MASHBOOH.');
+    logicPath.push('Resolution: DOUBTFUL/MASHBOOH ingredient evidence found. Product fallback maps this to HALAL unless a HARAM trigger exists.');
     logicPath.push('Uncertainty handling: source-dependent ingredients require verification.');
   } else {
     confidence = Math.min(0.75 + (explicitHalalCount / Math.max(ingredientResults.length, 1)) * 0.2, 0.95);

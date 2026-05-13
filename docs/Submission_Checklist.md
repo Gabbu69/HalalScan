@@ -18,6 +18,8 @@ npm run test:badges
 npm run build
 ```
 
+`npm run test:badges` launches a local Chromium/Puppeteer browser with an extended Windows timeout. If it fails before reaching the app because Chrome cannot launch on the machine, rerun it after closing other browser instances; the API/backend tests and production build remain the primary non-visual checks.
+
 ## Optional Environment Variables
 
 Live external services are optional for reproducible grading tests.
@@ -53,7 +55,7 @@ Without these keys:
 |---|---|---|---|
 | Halal | `rice, sunflower oil, sea salt` | `JAKIM` | `HALAL COMPLIANT` |
 | Haram | `sugar, E120, vanilla` | `JAKIM` | `NON-COMPLIANT` |
-| Review | `sugar, gelatin, natural flavors` | `IFANCA` | `REQUIRES REVIEW` |
+| Halal with ingredient warnings | `sugar, gelatin, natural flavors` | `IFANCA` | `HALAL COMPLIANT` with `DOUBTFUL` ingredient rows |
 
 ## Screenshot Checklist
 
@@ -65,9 +67,11 @@ Expected files:
 - `docs/screenshots/04-knowledge-filters.png`
 - `docs/screenshots/05-evaluation-page.png`
 - `docs/screenshots/06-rag-chat-e120.png`
+- `docs/screenshots/07-history-binary-badges.png`
 
 ## Final Notes
 
 - Do not present RAG as the final verdict engine.
 - Explain that `/api/analyze` is the final product decision path.
 - State that 100% evaluation accuracy is from curated classroom datasets and regression tests.
+- State that product badges are binary (`HALAL` or `HARAM`); `DOUBTFUL` and `UNKNOWN` remain ingredient-level evidence only.

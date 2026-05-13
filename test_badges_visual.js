@@ -56,11 +56,11 @@ const storageState = {
         brand: 'Demo',
         image: null,
         ingredients: 'sugar, gelatin',
-        verdict: 'REQUIRES REVIEW',
-        confidence: 72,
-        flagged_ingredients: ['gelatin'],
-        reason: 'Source-dependent ingredient requires verification.',
-        recommendation: 'Check certification.',
+        verdict: 'HALAL COMPLIANT',
+        confidence: 84,
+        flagged_ingredients: [],
+        reason: 'No haram ingredient was detected.',
+        recommendation: 'Check certification separately if needed.',
       },
       {
         id: 'halal',
@@ -87,8 +87,26 @@ const server = spawn(process.execPath, ['./node_modules/vite/bin/vite.js', `--po
 
 try {
   await waitForServer();
-  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+  const browser = await puppeteer.launch({
+    headless: true,
+    pipe: true,
+    timeout: 90_000,
+    protocolTimeout: 90_000,
+    args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+  });
   const page = await browser.newPage();
+  await page.setRequestInterception(true);
+  page.on('request', request => {
+    if (request.url().endsWith('/api/history')) {
+      request.respond({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ history: [] }),
+      });
+      return;
+    }
+    request.continue();
+  });
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
   await page.goto(baseUrl, { waitUntil: 'networkidle0' });
   await page.evaluate(value => localStorage.setItem('halalscan-storage', JSON.stringify(value)), storageState);
@@ -101,7 +119,7 @@ try {
   const bodyText = await page.$eval('body', node => node.textContent || '');
   await browser.close();
 
-  for (const expected of ['HARAM', 'MASHBOOH', 'HALAL']) {
+  for (const expected of ['HARAM', 'HALAL']) {
     if (!badgeTexts.includes(expected)) {
       throw new Error(`Expected visible badge ${expected}; got ${JSON.stringify(badgeTexts)}`);
     }
@@ -113,6 +131,9 @@ try {
   }
   if (!bodyText.includes('Non-compliant: haram trigger detected')) {
     throw new Error('Expected secondary compliance text for HARAM scan.');
+  }
+  if (badgeTexts.includes('MASHBOOH')) {
+    throw new Error(`MASHBOOH should not appear in binary product badges: ${JSON.stringify(badgeTexts)}`);
   }
 
   console.log('badge visual smoke: passed', badgeTexts);

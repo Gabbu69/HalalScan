@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-HalalScan is an AI-assisted web application that helps users evaluate whether packaged food products are halal-compliant, non-compliant, or require further review. The system addresses a real consumer problem: many food labels contain unfamiliar ingredients, E-numbers, animal-derived additives, alcohol-based flavorings, and unclear halal certification marks. These details are difficult to verify manually, especially when consumers do not have food chemistry or halal certification knowledge.
+HalalScan is an AI-assisted web application that helps users evaluate whether packaged food products are halal-compliant or non-compliant, while keeping source-dependent ingredient warnings visible for review. The system addresses a real consumer problem: many food labels contain unfamiliar ingredients, E-numbers, animal-derived additives, alcohol-based flavorings, and unclear halal certification marks. These details are difficult to verify manually, especially when consumers do not have food chemistry or halal certification knowledge.
 
 The project uses a hybrid artificial intelligence design. Machine learning support is used for ingredient classification through the Halal Food Checker API via RapidAPI, while knowledge-based reasoning is used to enforce explicit halal rules from a structured rule base. A local TF-IDF weighted Multinomial Naive Bayes classifier is also included as an offline fallback and evaluation artifact. The final verdict is produced by combining machine learning output, knowledge base rule matches, certifying-body validation, and deterministic conflict resolution.
 
@@ -41,7 +41,7 @@ Specific objectives and current progress are:
 | Integrate OCR and barcode workflows | Implemented through Google Vision-compatible OCR endpoint and Open Food Facts barcode lookup. Optional-key fallback is supported. |
 | Implement an ML classification layer | Implemented through RapidAPI Halal Food Checker integration, status normalization, caching, and local Naive Bayes fallback. |
 | Design a halal knowledge base | Implemented as a canonical JSON rule base with 67 rules, E-number taxonomy, keyword matching, reasons, sources, and certifying bodies. |
-| Build a reasoning engine | Implemented with deterministic priority logic: HARAM > DOUBTFUL > UNKNOWN > HALAL. |
+| Build a reasoning engine | Implemented with deterministic product priority logic: HARAM > HALAL, while preserving doubtful/unknown ingredient-level evidence. |
 | Integrate all components | Implemented through `/api/analyze`, frontend analysis flow, backend Flask routes, Vercel API adapter, and SQLite history. |
 | Evaluate progress and output | Implemented with reproducible evaluation scripts, backend tests, serverless smoke tests, and build validation. |
 
@@ -60,7 +60,7 @@ Final user-facing verdicts are:
 
 - `HALAL COMPLIANT`
 - `NON-COMPLIANT`
-- `REQUIRES REVIEW`
+- Ingredient-level warnings for `DOUBTFUL` and `UNKNOWN` source evidence
 
 ## 5. Current System Architecture
 
@@ -146,15 +146,15 @@ The reasoning engine is responsible for producing the final decision. It does no
 The implemented reasoning priority is:
 
 ```text
-HARAM > DOUBTFUL > UNKNOWN > HALAL
+HARAM > HALAL
 ```
 
 This means:
 
 - If any ingredient is HARAM, the final verdict becomes `NON-COMPLIANT`.
-- If no HARAM ingredient exists but an ingredient is DOUBTFUL or UNKNOWN, the final verdict becomes `REQUIRES REVIEW`.
-- If all ingredients are clear and the certifying body is recognized, the verdict becomes `HALAL COMPLIANT`.
-- If the certifying body is missing or unrecognized, the product is routed to review even if the ingredients appear clear.
+- If no HARAM ingredient exists, the final product verdict becomes `HALAL COMPLIANT`.
+- If an ingredient is DOUBTFUL or UNKNOWN, that status remains visible in the ingredient evidence but does not create a product-level maybe verdict.
+- If the certifying body is missing or unrecognized, that status remains visible as evidence but does not override the no-haram product result.
 
 The reasoning engine also produces a trace. The output includes extracted facts, matched rule IDs, certification status, conflict resolution, final verdict, flagged ingredients, and a logic path. This supports explainability, which is important for the AI systems rubric.
 
@@ -204,8 +204,8 @@ The backend tests validate important behavior such as:
 - E1200 not falsely matching E120.
 - OCR-style Unicode hyphen normalization.
 - Pork derivatives and alcohol forcing non-compliance.
-- Gelatin and natural flavors requiring review.
-- Missing or unrecognized certifying body requiring review.
+- Gelatin and natural flavors remaining halal at the product level while showing ingredient-level warnings.
+- Missing or unrecognized certifying body remaining visible as evidence without forcing a product-level maybe verdict.
 - Clean ingredients with recognized certification becoming halal compliant.
 - Deterministic no-credential behavior.
 - Scan history persistence.
@@ -239,7 +239,7 @@ The current system is suitable for academic demonstration, but it has limitation
 - Certifying-body verification checks a maintained list but does not authenticate certificates against official government databases.
 - The knowledge base should be reviewed by qualified halal authorities before real-world production use.
 - Non-English labels may require translation before accurate ingredient reasoning.
-- Halal rulings can vary by school of law, so doubtful cases are routed to review instead of being forced into a single answer.
+- Halal rulings can vary by school of law, so doubtful cases remain visible as ingredient-level warnings for human review.
 - The local ML fallback is intentionally small and should not be treated as a production-grade classifier.
 
 ## 13. Remaining Work

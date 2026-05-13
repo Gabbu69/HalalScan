@@ -34,11 +34,10 @@ flowchart TD
   D --> E
   E --> F{Priority resolution}
   F -->|Any HARAM| NC[NON-COMPLIANT]
-  F -->|Any DOUBTFUL or UNKNOWN| RR[REQUIRES REVIEW]
-  F -->|All clear + recognized certifier| HC[HALAL COMPLIANT]
+  F -->|No HARAM| HC[HALAL COMPLIANT]
 ```
 
-Conflict priority is explicit: `HARAM > DOUBTFUL > UNKNOWN > HALAL`. The final response includes trace evidence under `architectureDetails.krrAnalysis`, including facts, matched rules, conflict resolution, certification check, evaluation notes, and the logic path.
+Product-level conflict priority is explicit: `HARAM > HALAL`. Ingredient-level rows still preserve `DOUBTFUL` and `UNKNOWN` statuses when source evidence is incomplete, and certifying-body status is displayed as evidence rather than a product-level blocker. The final response includes trace evidence under `architectureDetails.krrAnalysis`, including facts, matched rules, conflict resolution, certification check, evaluation notes, and the logic path.
 
 ## Knowledge Base
 
@@ -83,12 +82,11 @@ Final verdict labels remain:
 
 - `HALAL COMPLIANT`
 - `NON-COMPLIANT`
-- `REQUIRES REVIEW`
 
 ## Limitations
 
 - Live Google Vision OCR and RapidAPI classification require external credentials.
 - Certifying-body verification is list-based and does not authenticate official certificates against government databases.
 - Non-English labels may need translation before reliable ingredient reasoning.
-- Halal rulings can vary by school of law; the maintained rules use the project’s default general standard and route doubtful cases to review.
+- Halal rulings can vary by school of law; the maintained rules keep doubtful cases visible as ingredient-level evidence for human verification.
 - The KB is suitable for academic demonstration but would require expert review before production use.

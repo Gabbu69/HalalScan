@@ -1,8 +1,8 @@
-export type VerdictTone = 'halal' | 'haram' | 'review';
+export type VerdictTone = 'halal' | 'haram';
 
 export type VerdictPresentation = {
   tone: VerdictTone;
-  primaryLabel: 'HALAL' | 'HARAM' | 'MASHBOOH';
+  primaryLabel: 'HALAL' | 'HARAM';
   secondaryLabel: string;
   summary: string;
   badgeClass: string;
@@ -21,7 +21,7 @@ export const getVerdictPresentation = (verdict: string): VerdictPresentation => 
       tone: 'halal',
       primaryLabel: 'HALAL',
       secondaryLabel: normalized === 'HALAL COMPLIANT' ? 'Halal compliant' : 'Halal',
-      summary: 'No haram or doubtful trigger was found in the final decision.',
+      summary: 'No haram trigger was found in the final decision.',
       badgeClass: 'bg-green-600',
       softClass: 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-300 dark:border-green-900/40',
       textClass: 'text-green-600 dark:text-green-400',
@@ -43,14 +43,14 @@ export const getVerdictPresentation = (verdict: string): VerdictPresentation => 
   }
 
   return {
-    tone: 'review',
-    primaryLabel: 'MASHBOOH',
-    secondaryLabel: normalized === 'REQUIRES REVIEW' ? 'Requires review' : 'Mashbooh / doubtful',
-    summary: 'One or more ingredients, sources, or certifier details need verification.',
-    badgeClass: 'bg-amber-600',
-    softClass: 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-900/40',
-    textClass: 'text-amber-600 dark:text-amber-400',
-    borderClass: 'border-amber-600',
+    tone: 'halal',
+    primaryLabel: 'HALAL',
+    secondaryLabel: 'No haram ingredient detected',
+    summary: 'No haram trigger was found in the final decision.',
+    badgeClass: 'bg-green-600',
+    softClass: 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-300 dark:border-green-900/40',
+    textClass: 'text-green-600 dark:text-green-400',
+    borderClass: 'border-green-600',
   };
 };
 

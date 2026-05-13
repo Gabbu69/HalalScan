@@ -47,8 +47,7 @@ export function History() {
   const matchesFilter = (scan: ScanRecord) => {
     if (filter === 'ALL') return true;
     if (filter === 'HALAL') return verdictMatchesTone(scan.verdict, 'halal');
-    if (filter === 'HARAM') return verdictMatchesTone(scan.verdict, 'haram');
-    return verdictMatchesTone(scan.verdict, 'review');
+    return verdictMatchesTone(scan.verdict, 'haram');
   };
 
   const filteredScans = scans.filter(matchesFilter);
@@ -73,17 +72,15 @@ export function History() {
 
       <div className="px-5 mb-6">
         <div className="flex flex-row overflow-x-auto gap-2 no-scrollbar pb-1">
-          {['ALL', 'HALAL', 'HARAM', 'MASHBOOH'].map(f => {
+          {['ALL', 'HALAL', 'HARAM'].map(f => {
             let activeClass = 'bg-[#1B6B3A] text-white border-[#1B6B3A]';
             if (f === 'HALAL') activeClass = 'bg-green-600 text-white border-green-600';
             if (f === 'HARAM') activeClass = 'bg-red-600 text-white border-red-600';
-            if (f === 'MASHBOOH') activeClass = 'bg-amber-600 text-white border-amber-600';
 
             const count = 
               f === 'ALL' ? stats.total : 
               f === 'HALAL' ? stats.halal : 
-              f === 'HARAM' ? stats.haram : 
-              stats.mashbooh;
+              stats.haram;
 
             return (
               <button
@@ -91,7 +88,7 @@ export function History() {
                 onClick={() => setFilter(f)}
                 className={`px-4 py-1.5 rounded-full whitespace-nowrap text-[10px] font-bold tracking-wider uppercase transition-colors shadow-sm border flex items-center gap-1.5 ${filter === f ? activeClass : 'bg-white dark:bg-[#1a2e22] text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'}`}
               >
-                <span>{f === 'ALL' ? (t('history.total') || 'All') : f === 'MASHBOOH' ? (t('history.mashbooh') || 'MASHBOOH') : f}</span>
+                <span>{f === 'ALL' ? (t('history.total') || 'All') : f}</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[8px] bg-black/10 dark:bg-white/10 ${filter === f ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                   {count}
                 </span>

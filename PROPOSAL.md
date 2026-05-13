@@ -27,7 +27,7 @@ HalalScan uses a hybrid Machine Learning + Knowledge-Based Reasoning design:
 
 ## Verdicts
 
-- `HALAL COMPLIANT`: all ingredients are clear and a recognized certifying body is provided.
+- `HALAL COMPLIANT`: no haram ingredient is detected.
 - `NON-COMPLIANT`: any API or KB result finds a haram ingredient.
-- `REQUIRES REVIEW`: any ingredient is doubtful/unknown, or certification is missing/unrecognized.
+- Ingredient-level `DOUBTFUL` and `UNKNOWN` warnings remain visible for source verification, but the product badge stays binary: halal unless a haram trigger is found.
 

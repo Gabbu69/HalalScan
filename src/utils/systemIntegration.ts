@@ -2,7 +2,7 @@ import { hasUsableIngredientText, runRuleBasedInference, InferenceResult } from 
 import { analyzeProductWithGemini, analyzeImageWithGemini } from './geminiApi';
 import { scoreIngredients } from './mlModel';
 
-export type ProposalVerdict = 'HALAL COMPLIANT' | 'NON-COMPLIANT' | 'REQUIRES REVIEW';
+export type ProposalVerdict = 'HALAL COMPLIANT' | 'NON-COMPLIANT';
 export type LegacyVerdict = 'HALAL' | 'HARAM' | 'MASHBOOH';
 
 export type IntegratedAnalysisResult = {
@@ -42,21 +42,26 @@ const buildConsensus = (mlResult: any, krrResult: InferenceResult, integrationLo
   let finalVerdict = mlResult.verdict;
   let finalReason = mlResult.reason;
   let finalConfidence = mlResult.confidence;
-  const finalFlags = Array.from(new Set([...(mlResult.flagged_ingredients || []), ...krrResult.flags.map(f => f.ingredient)]));
 
   if (krrResult.status === 'HARAM' && mlResult.verdict !== 'HARAM') {
     integrationLogs.push('CRITICAL: KR&R explicitly detected HARAM violation overriding ML assessment.');
     finalVerdict = 'HARAM';
     finalReason = `Rule-based violation found (${krrResult.flags.map(f => f.ingredient).join(', ')}). ` + finalReason;
     finalConfidence = 100;
-  } else if (krrResult.status === 'MASHBOOH' && mlResult.verdict === 'HALAL') {
-    integrationLogs.push('NOTICE: KR&R detected MASHBOOH warning. Overriding ML HALAL assessment.');
-    finalVerdict = 'MASHBOOH';
-    finalReason = `Rule-based doubtful ingredient found (${krrResult.flags.map(f => f.ingredient).join(', ')}). ` + finalReason;
-    finalConfidence = Math.max(50, (finalConfidence || 100) - 20);
   } else {
-    integrationLogs.push('System reached consensus smoothly. ML assessment aligns with KR&R evaluation.');
+    if (finalVerdict === 'MASHBOOH') {
+      finalVerdict = 'HALAL';
+      finalReason = 'No haram ingredient was detected. ' + finalReason;
+    }
+    integrationLogs.push('System reached a binary user result: HARAM when a haram trigger exists, otherwise HALAL.');
   }
+
+  const finalFlags = finalVerdict === 'HARAM'
+    ? Array.from(new Set([
+        ...(mlResult.flagged_ingredients || []),
+        ...krrResult.flags.filter(f => f.type === 'HARAM').map(f => f.ingredient)
+      ]))
+    : [];
 
   return {
     finalVerdict,
@@ -129,11 +134,11 @@ const runLegacyIntegratedAnalysis = async (productName: string, ingredients: str
   if (!hasUsableIngredientText(ingredients)) {
     integrationLogs.push('Input quality guard activated. No usable ingredient list was available, so external ML was skipped.');
     const mlResult = {
-      verdict: 'MASHBOOH',
+      verdict: 'HALAL',
       confidence: 55,
-      reason: 'Insufficient ingredient information is available. The system cannot confirm halal status without a readable ingredients list.',
-      flagged_ingredients: krrResult.flags.map(flag => flag.ingredient),
-      recommendation: 'Scan the ingredients photo or paste the label text before consuming. Until verified, treat this product as doubtful.',
+      reason: 'Insufficient ingredient information is available, but no haram ingredient was detected in the supplied text.',
+      flagged_ingredients: [],
+      recommendation: 'Scan the ingredients photo or paste the label text for a stronger check.',
       name: productName,
       ingredients
     };
@@ -250,17 +255,17 @@ export const runIntegratedImageAnalysis = async (
 
     const krrResult = runRuleBasedInference('');
     return {
-      finalVerdict: 'MASHBOOH',
+      finalVerdict: 'HALAL',
       confidence: 50,
-      reason: 'Image scan fallback is active, but no usable OCR text was available. The result is marked doubtful until ingredient text is entered.',
+      reason: 'Image scan fallback is active, but no usable OCR text was available. No haram ingredient was detected in the supplied text.',
       flagged_ingredients: [],
-      recommendation: 'Paste ingredients manually or configure the Flask Google Vision backend.',
+      recommendation: 'Paste ingredients manually or configure the Flask Google Vision backend for a stronger check.',
       name: 'Photo Scan (OCR Unavailable)',
       ingredients: 'Image uploaded, but ingredients could not be extracted.',
       architectureDetails: {
         krrAnalysis: krrResult,
         mlAnalysis: {
-          verdict: 'MASHBOOH',
+          verdict: 'HALAL',
           confidence: 50,
           reason: 'No OCR text available.',
           flagged_ingredients: [],

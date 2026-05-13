@@ -101,7 +101,7 @@ for (const body of ['JAKIM', 'MUI', 'IFANCA', 'HFA', 'ESMA']) {
     throw new Error(`Expected certifying body evidence for ${body}.`);
   }
 }
-if (evidence.reasoningEngine.priority.join('>') !== 'HARAM>DOUBTFUL>UNKNOWN>HALAL') {
+if (evidence.reasoningEngine.priority.join('>') !== 'HARAM>HALAL') {
   throw new Error('Expected deterministic reasoning priority evidence.');
 }
 if (evidence.systemIntegration.main_route !== '/api/analyze') {
@@ -163,7 +163,7 @@ if (!nonCompliant.body.architectureDetails?.krrAnalysis?.conflictResolution?.pri
 }
 console.log('non-compliant:', nonCompliant.body.final_verdict, nonCompliant.body.triggered_rules);
 
-const review = await invoke(analyzeHandler, {
+const doubtfulNoHaram = await invoke(analyzeHandler, {
   method: 'POST',
   body: {
     productName: 'Gummies',
@@ -171,11 +171,14 @@ const review = await invoke(analyzeHandler, {
     certifyingBody: 'IFANCA',
   },
 });
-expectOk('review analyze', review);
-if (review.body.final_verdict !== 'REQUIRES REVIEW') {
-  throw new Error(`Expected REQUIRES REVIEW, got ${review.body.final_verdict}`);
+expectOk('doubtful no-haram analyze', doubtfulNoHaram);
+if (doubtfulNoHaram.body.final_verdict !== 'HALAL COMPLIANT') {
+  throw new Error(`Expected HALAL COMPLIANT, got ${doubtfulNoHaram.body.final_verdict}`);
 }
-console.log('review:', review.body.final_verdict);
+if (doubtfulNoHaram.body.flagged_ingredients.length !== 0) {
+  throw new Error(`Expected no product-level flagged ingredients without haram triggers, got ${JSON.stringify(doubtfulNoHaram.body.flagged_ingredients)}`);
+}
+console.log('doubtful no-haram:', doubtfulNoHaram.body.final_verdict);
 
 const chatE120 = await invoke(chatHandler, { method: 'POST', body: { query: 'Is E120 halal?', language: 'English' } });
 expectOk('chat E120 RAG', chatE120);
