@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { Home, History, BookOpen, MoonStar, MessageCircle, User, FlaskConical } from 'lucide-react';
+import { Home, History, BookOpen, MessageCircle, Settings, FlaskConical } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useTranslation } from '../hooks/useTranslation';
 
@@ -31,7 +31,7 @@ export function Layout() {
           <NavItem to="/chat" icon={<MessageCircle size={22} />} label={t('layout.chat')} />
           <NavItem to="/knowledge" icon={<BookOpen size={22} />} label={t('layout.knowledge') || 'Knowledge'} />
           <NavItem to="/evaluation" icon={<FlaskConical size={22} />} label="Evaluate" />
-          <NavItem to="/profile" icon={<User size={22} />} label={t('layout.profile')} />
+          <NavItem to="/profile" icon={<Settings size={22} />} label={t('layout.profile')} />
         </div>
       </nav>
     </div>

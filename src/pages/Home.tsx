@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import { ScanLine, Search, CheckCircle2, XCircle, AlertTriangle, User, MapPin, Navigation, Info } from 'lucide-react';
+import { ScanLine, Search, CheckCircle2, XCircle, AlertTriangle, Settings, MapPin, Navigation, Info } from 'lucide-react';
 import { Badge } from '../components/Badge';
 import { useTranslation } from '../hooks/useTranslation';
 import { getVerdictPresentation } from '../utils/verdictPresentation';
@@ -52,9 +52,9 @@ export function Home() {
         <button 
           onClick={() => navigate('/profile')}
           className="w-8 h-8 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full flex items-center justify-center shadow-sm cursor-pointer transition-colors"
-          title="Go to profile"
+          title="Go to settings"
         >
-          <User size={16} className="text-gray-500 dark:text-gray-400" />
+          <Settings size={16} className="text-gray-500 dark:text-gray-400" />
         </button>
       </div>
 

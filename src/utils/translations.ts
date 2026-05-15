@@ -8,7 +8,7 @@ export const translations: Translations = {
     'nav.history': 'History',
     'nav.scan': 'Scan',
     'nav.chat': 'Chat',
-    'nav.profile': 'Profile',
+    'nav.profile': 'Settings',
 
     // Home
     'home.greeting': 'Assalamu alaikum',
@@ -32,10 +32,10 @@ export const translations: Translations = {
     'layout.home': 'Home',
     'layout.history': 'History',
     'layout.chat': 'Chat',
-    'layout.profile': 'Profile',
+    'layout.profile': 'Settings',
 
     // Profile
-    'profile.title': 'Profile',
+    'profile.title': 'Settings',
     'profile.edit': 'Edit',
     'profile.cancel': 'Cancel',
     'profile.save': 'Save',
@@ -43,16 +43,18 @@ export const translations: Translations = {
     'profile.email': 'Email',
     'profile.preferences': 'Preferences',
     'profile.dark_mode': 'Dark Mode',
-    'profile.dietary': 'Dietary Perspective',
-    'profile.dietary_desc': 'This choice affects API interpretation, removing religious biases if General is selected.',
-    'profile.general': 'General (Non-Muslim / Clean Eating)',
+    'profile.dietary': 'Halal Interpretation',
+    'profile.dietary_desc': 'Choose the interpretation used for ingredient explanations and assistant responses.',
+    'profile.general': 'General Ingredient Review',
     'profile.language': 'Language',
     'profile.language_desc': 'Choose your preferred language for AI responses and interface.',
 
     'profile.about': 'About HalalScan',
-    'profile.about_desc': 'Designed to assist consumers in identifying hidden animal by-products, alcohol, and ambiguous ingredients using artificial intelligence. Whether you follow Halal guidelines, eat vegan, or simply prioritize clean eating, HalalScan provides transparent insights.',
-    'profile.reset': 'Reset Application',
-    'profile.reset_confirm': 'Are you sure you want to completely reset the app? This will clear all scan history and settings.',
+    'profile.about_desc': 'HalalScan is an academic prototype that screens packaged food ingredients for halal compliance. It checks ingredients for haram, doubtful, and unclear items, then explains the reason behind the result.',
+    'profile.data': 'Data',
+    'profile.data_desc': 'Clear local scan history, saved preferences, and browser-stored app data on this device.',
+    'profile.reset': 'Clear Local Data',
+    'profile.reset_confirm': 'Clear local scan history, saved preferences, and app data on this device?',
 
     // Scanner
     'scanner.title': 'Product Scanner',
@@ -138,7 +140,7 @@ export const translations: Translations = {
     'nav.history': 'Kasaysayan',
     'nav.scan': 'I-scan',
     'nav.chat': 'Chat',
-    'nav.profile': 'Profile',
+    'nav.profile': 'Settings',
 
     // Home
     'home.greeting': 'Assalamu alaikum',
@@ -162,10 +164,10 @@ export const translations: Translations = {
     'layout.home': 'Home',
     'layout.history': 'Kasaysayan',
     'layout.chat': 'Chat',
-    'layout.profile': 'Profile',
+    'layout.profile': 'Settings',
 
     // Profile
-    'profile.title': 'Profile',
+    'profile.title': 'Settings',
     'profile.edit': 'I-edit',
     'profile.cancel': 'Kanselahin',
     'profile.save': 'I-save',
@@ -173,16 +175,18 @@ export const translations: Translations = {
     'profile.email': 'Email',
     'profile.preferences': 'Mga Kagustuhan',
     'profile.dark_mode': 'Dark Mode',
-    'profile.dietary': 'Pananaw sa Pagkain',
-    'profile.dietary_desc': 'Ang pagpipiliang ito ay nakakaapekto sa interpretasyon ng API, nag-aalis ng mga bias ng relihiyon kung pipiliin ang General.',
-    'profile.general': 'General (Hindi Muslim / Malinis na Pagkain)',
+    'profile.dietary': 'Halal Interpretation',
+    'profile.dietary_desc': 'Piliin ang interpretasyon na gagamitin sa ingredient explanations at assistant responses.',
+    'profile.general': 'General Ingredient Review',
     'profile.language': 'Wika',
     'profile.language_desc': 'Piliin ang iyong gustong wika para sa AI at app interface.',
 
     'profile.about': 'Tungkol sa HalalScan',
-    'profile.about_desc': 'Idinisenyo upang tulungan ang mga mamimili na matukoy ang mga nakatagong by-product ng hayop, alkohol, at mga kaduda-dudang sangkap gamit ang AI.',
-    'profile.reset': 'I-reset ang Application',
-    'profile.reset_confirm': 'Sigurado ka bang gusto mong i-reset ang app? Buburahin nito ang lahat ng kasaysayan at settings.',
+    'profile.about_desc': 'Ang HalalScan ay isang academic prototype na sumusuri ng packaged food ingredients para sa halal compliance. Tinitingnan nito kung may haram, doubtful, o unclear items, pagkatapos ipinapaliwanag ang dahilan ng resulta.',
+    'profile.data': 'Data',
+    'profile.data_desc': 'Burahin ang local scan history, saved preferences, at browser-stored app data sa device na ito.',
+    'profile.reset': 'Clear Local Data',
+    'profile.reset_confirm': 'Burahin ang local scan history, saved preferences, at app data sa device na ito?',
 
     // Scanner
     'scanner.title': 'Product Scanner',
@@ -300,9 +304,11 @@ export const translations: Translations = {
     'profile.language_desc': 'اختر لغتك المفضلة للمساعد والواجهة.',
 
     'profile.about': 'عن HalalScan',
-    'profile.about_desc': 'مصمم لمساعدة المستهلكين في تحديد المنتجات الحيوانية المخفية والكحول والمكونات الغامضة باستخدام الذكاء الاصطناعي.',
-    'profile.reset': 'إعادة ضبط التطبيق',
-    'profile.reset_confirm': 'هل أنت متأكد من إعادة ضبط التطبيق؟ سيؤدي ذلك إلى مسح السجل والإعدادات.',
+    'profile.about_desc': 'HalalScan is an academic prototype that screens packaged food ingredients for halal compliance. It checks ingredients for haram, doubtful, and unclear items, then explains the reason behind the result.',
+    'profile.data': 'Data',
+    'profile.data_desc': 'Clear local scan history, saved preferences, and browser-stored app data on this device.',
+    'profile.reset': 'Clear Local Data',
+    'profile.reset_confirm': 'Clear local scan history, saved preferences, and app data on this device?',
 
     // Scanner
     'scanner.title': 'ماسح المنتجات',

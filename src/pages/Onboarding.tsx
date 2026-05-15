@@ -18,7 +18,7 @@ const SLIDES = [
   },
   {
     title: 'Your Dietary Companion',
-    text: 'Designed originally for the Muslim community in BARMM, now providing transparent ingredient analysis for everyone.',
+    text: 'Designed to support halal food screening with transparent ingredient analysis and recognized certification references.',
     icon: <BookOpen size={120} className="text-[var(--color-primary)]" />
   }
 ];

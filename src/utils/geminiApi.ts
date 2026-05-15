@@ -113,7 +113,7 @@ export const askHalalAssistant = async (query: string, madhab: string) => {
   const isGeneral = madhab === 'General';
   
   const roleContext = isGeneral
-    ? `You are "Scan AI", a helpful and knowledgeable dietary assistant focusing on clean eating, identifying animal-derived ingredients, hidden pork by-products, and alcohol content in everyday consumer products.`
+    ? `You are "Scan AI", a helpful dietary assistant focusing on ingredient screening, hidden animal-derived ingredients, pork by-products, and alcohol content in everyday consumer products.`
     : `You are "HalalScan AI", a helpful, respectful, and highly knowledgeable Islamic dietary assistant. Focus on ${madhab} fiqh rulings for food, ingredients, and everyday consumer products.`;
 
   const language = useAppStore.getState().language;
