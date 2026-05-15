@@ -70,7 +70,7 @@ export const useAppStore = create<AppState>()(
       pendingCertifyingBody: '',
       userLocation: null,
       locationPermissionStatus: 'prompt',
-      userProfile: { name: 'Guest User', email: 'guest@example.com', avatar: null },
+      userProfile: { name: 'HalalScan Prototype', email: '', avatar: null },
       
       setHasOnboarded: (val: boolean) => set({ hasOnboarded: val }),
       toggleDarkMode: () => set((state) => {
