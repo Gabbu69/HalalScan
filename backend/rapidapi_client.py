@@ -18,13 +18,11 @@ def is_configured() -> bool:
 
 def _normalize_status(value: Any) -> str:
     text = str(value or "").strip().lower()
-    if not text:
-        return "UNKNOWN"
-    if any(token in text for token in ["haram", "non-halal", "non halal", "forbidden"]):
+    if text in {"haram", "forbidden", "non-halal", "non halal", "not halal", "non-compliant"}:
         return "HARAM"
-    if any(token in text for token in ["doubt", "doubtful", "mashbooh", "mushbooh", "questionable", "suspect"]):
+    if text in {"doubtful", "mashbooh", "mushbooh", "questionable", "suspect"}:
         return "DOUBTFUL"
-    if "halal" in text or "permissible" in text:
+    if text in {"halal", "halal compliant", "permissible"}:
         return "HALAL"
     return "UNKNOWN"
 
@@ -105,14 +103,14 @@ def classify_ingredient(ingredient: str) -> dict[str, Any]:
             url,
             headers=headers,
             json={"ingredient": ingredient, "ingredients": ingredient, "text": ingredient},
-            timeout=12,
+            timeout=6,
         )
         if response.status_code in {404, 405}:
             response = requests.get(
                 url,
                 headers={key: value for key, value in headers.items() if key != "Content-Type"},
                 params={"ingredient": ingredient, "q": ingredient},
-                timeout=12,
+                timeout=6,
             )
         response.raise_for_status()
         parsed = _parse_response(response.json())

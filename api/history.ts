@@ -8,8 +8,9 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
   return res.status(200).json({
     history: listServerlessHistory(),
-    storage: 'serverless-memory',
-    note: 'Vercel serverless memory is ephemeral. The frontend also persists scan history in localStorage.',
+    storage: 'device-local',
+    deprecated: true,
+    note: 'Scan history is stored only on this device.',
   });
 }
 

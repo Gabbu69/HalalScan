@@ -6,7 +6,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from .analysis import analyze_payload
-from .database import init_db, list_history
+from .database import init_db
 from .knowledge_base import load_certifying_bodies, load_rules
 from .ocr import is_configured as is_google_vision_configured
 from .ocr import run_ocr_payload
@@ -16,6 +16,7 @@ from .rapidapi_client import is_configured as is_rapidapi_configured
 
 def create_app() -> Flask:
     app = Flask(__name__)
+    app.config["MAX_CONTENT_LENGTH"] = 6 * 1024 * 1024
     CORS(app)
     init_db()
 
@@ -46,6 +47,8 @@ def create_app() -> Flask:
         payload = request.get_json(silent=True) or {}
         try:
             return jsonify(analyze_payload(payload))
+        except ValueError as exc:
+            return jsonify({"code": "INVALID_ANALYSIS", "error": str(exc)}), 400
         except Exception as exc:
             return jsonify({"code": "ANALYSIS_FAILED", "error": str(exc)}), 500
 
@@ -60,11 +63,7 @@ def create_app() -> Flask:
 
     @app.get("/api/history")
     def history():
-        try:
-            limit = int(request.args.get("limit", "100"))
-        except ValueError:
-            limit = 100
-        return jsonify({"history": list_history(limit=max(1, min(limit, 500)))})
+        return jsonify({"history": [], "storage": "device-local", "deprecated": True})
 
     @app.post("/api/chat")
     def chat():

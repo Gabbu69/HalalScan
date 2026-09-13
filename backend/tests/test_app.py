@@ -56,7 +56,7 @@ def test_haram_rule_overrides_certification(tmp_path, monkeypatch):
     assert data["final_verdict"] == "NON-COMPLIANT"
     assert "R001" in data["triggered_rules"]
     assert "E120" in data["flagged_ingredients"]
-    assert data["architectureDetails"]["krrAnalysis"]["conflictResolution"]["priority"] == ["HARAM", "HALAL"]
+    assert data["architectureDetails"]["krrAnalysis"]["conflictResolution"]["priority"] == ["HARAM", "DOUBTFUL", "UNKNOWN", "HALAL"]
     assert data["architectureDetails"]["krrAnalysis"]["facts"]
     assert data["architectureDetails"]["krrAnalysis"]["matchedRules"]
 
@@ -93,7 +93,7 @@ def test_analyze_response_exposes_grading_contract(tmp_path, monkeypatch):
     assert evidence["knowledgeBaseDesign"]["source_of_truth"] == "backend/data/halal_rules.json"
     assert evidence["knowledgeBaseDesign"]["rule_count"] >= 60
     assert set(evidence["knowledgeBaseDesign"]["certifying_bodies"]) >= {"JAKIM", "MUI", "IFANCA", "HFA", "ESMA"}
-    assert evidence["reasoningEngine"]["priority"] == ["HARAM", "HALAL"]
+    assert evidence["reasoningEngine"]["priority"] == ["HARAM", "DOUBTFUL", "UNKNOWN", "HALAL"]
     assert evidence["systemIntegration"]["main_route"] == "/api/analyze"
 
 
@@ -145,7 +145,7 @@ def test_pork_derivative_and_alcohol_regressions(tmp_path, monkeypatch):
     assert {"R003", "R034"} <= set(data["triggered_rules"])
 
 
-def test_halal_requires_recognized_certifying_body(tmp_path, monkeypatch):
+def test_known_ingredients_with_body_reference_pass_screening(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
     response = client.post(
         "/api/analyze",
@@ -230,7 +230,7 @@ def test_unrecognized_certifying_body_still_returns_halal_when_no_haram(tmp_path
     assert data["certifying_body"]["status"] == "UNRECOGNIZED"
 
 
-def test_doubtful_ingredients_return_halal_when_no_haram(tmp_path, monkeypatch):
+def test_doubtful_ingredients_require_review(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
     response = client.post(
         "/api/analyze",
@@ -242,8 +242,8 @@ def test_doubtful_ingredients_return_halal_when_no_haram(tmp_path, monkeypatch):
     )
     data = response.get_json()
     assert response.status_code == 200
-    assert data["final_verdict"] == "HALAL COMPLIANT"
-    assert data["flagged_ingredients"] == []
+    assert data["final_verdict"] == "REQUIRES REVIEW"
+    assert "gelatin" in data["flagged_ingredients"]
     assert "R002" in data["triggered_rules"]
 
 
@@ -285,7 +285,7 @@ def test_rapidapi_no_credentials_is_explicit_but_deterministic(tmp_path, monkeyp
     )
 
 
-def test_no_ingredients_returns_halal_when_no_haram(tmp_path, monkeypatch):
+def test_no_ingredients_requires_review(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
     response = client.post(
         "/api/analyze",
@@ -297,7 +297,7 @@ def test_no_ingredients_returns_halal_when_no_haram(tmp_path, monkeypatch):
     )
     data = response.get_json()
     assert response.status_code == 200
-    assert data["final_verdict"] == "HALAL COMPLIANT"
+    assert data["final_verdict"] == "REQUIRES REVIEW"
     assert data["triggered_rules"] == []
 
 
@@ -342,7 +342,7 @@ def test_chat_rag_unknown_query_is_deterministic(tmp_path, monkeypatch):
     assert "could not find a direct match" in data["text"]
 
 
-def test_history_persists_scan_results(tmp_path, monkeypatch):
+def test_history_is_device_local(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
     client.post(
         "/api/analyze",
@@ -355,5 +355,5 @@ def test_history_persists_scan_results(tmp_path, monkeypatch):
     response = client.get("/api/history")
     data = response.get_json()
     assert response.status_code == 200
-    assert len(data["history"]) == 1
-    assert data["history"][0]["final_verdict"] == "HALAL COMPLIANT"
+    assert data["history"] == []
+    assert data["storage"] == "device-local"

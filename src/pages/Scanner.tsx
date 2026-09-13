@@ -1,469 +1,102 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
-import { Search, Camera, Loader2, RefreshCw, X, Check } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Camera, ScanLine, Type, Upload, X, Image as ImageIcon } from 'lucide-react';
+import type { Html5Qrcode } from 'html5-qrcode';
 import { useAppStore } from '../store/useAppStore';
-import { useTranslation } from '../hooks/useTranslation';
-
+import { useCopy } from '../utils/copy';
+import { useOnline } from '../hooks/useOnline';
+import { validBarcode, validateLabelFile, readLabelFile, preparePhoto } from '../utils/scanInput';
+import { fetchJson } from '../utils/requests';
+import { hasUsableIngredients } from '../../shared/verdict';
 export function Scanner() {
-  const [manualBarcode, setManualBarcode] = useState('');
-  const [manualText, setManualText] = useState('');
-  const [isProcessingImage, setIsProcessingImage] = useState(false);
-  const [imageProcessingStep, setImageProcessingStep] = useState('Processing Photo...');
-  const [showOcrReview, setShowOcrReview] = useState(false);
-  const [reviewOcrText, setReviewOcrText] = useState('');
-  const [reviewImagePreview, setReviewImagePreview] = useState<string | null>(null);
-  const [isScannerReady, setIsScannerReady] = useState(false);
-  const [scannerError, setScannerError] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const { t } = useTranslation();
-  const {
-    setPendingAnalysisImage,
-    setPendingAnalysisImageOcrText,
-    setPendingAnalysisText,
-    setPendingCertifyingBody
-  } = useAppStore();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-
-  useEffect(() => {
-    const readerId = "reader";
-    
-    const startScanner = async () => {
-      try {
-        const html5QrCode = new Html5Qrcode(readerId);
-        scannerRef.current = html5QrCode;
-
-        const config = { 
-          fps: 10, 
-          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => ({
-            width: Math.floor(Math.min(viewfinderWidth * 0.9, 340)),
-            height: Math.floor(Math.min(viewfinderHeight * 0.35, 180))
-          }),
-          aspectRatio: 1.777,
-          formatsToSupport: [
-            Html5QrcodeSupportedFormats.EAN_13,
-            Html5QrcodeSupportedFormats.EAN_8,
-            Html5QrcodeSupportedFormats.UPC_A,
-            Html5QrcodeSupportedFormats.UPC_E,
-            Html5QrcodeSupportedFormats.CODE_128,
-            Html5QrcodeSupportedFormats.CODE_39,
-            Html5QrcodeSupportedFormats.CODE_93,
-            Html5QrcodeSupportedFormats.ITF,
-            Html5QrcodeSupportedFormats.CODABAR,
-            Html5QrcodeSupportedFormats.QR_CODE
-          ]
-        };
-
-        const successCallback = (decodedText: string) => {
-          const barcode = decodedText.trim();
-          if (!barcode) return;
-          html5QrCode.stop().then(() => {
-            setPendingCertifyingBody('');
-            navigate(`/analysis?barcode=${encodeURIComponent(barcode)}`);
-          }).catch(() => {
-            setPendingCertifyingBody('');
-            navigate(`/analysis?barcode=${encodeURIComponent(barcode)}`);
-          });
-        };
-
-        const errorCallback = (errorMessage: string) => {
-          // parse error, ignore
-        };
-
-        try {
-          // Try preferred back camera first
-          await html5QrCode.start({ facingMode: "environment" }, config, successCallback, errorCallback);
-        } catch (envErr) {
-          console.log("Environment camera failed, falling back to any available camera:", envErr);
-          // If environment fails (e.g. on laptops), get all cameras and use the first one
-          const devices = await Html5Qrcode.getCameras();
-          if (devices && devices.length > 0) {
-            await html5QrCode.start(devices[0].id, config, successCallback, errorCallback);
-          } else {
-            throw new Error("No cameras found on device");
-          }
-        }
-        
-        setIsScannerReady(true);
-        setScannerError(null);
-      } catch (err) {
-        console.error("Scanner start error:", err);
-        setScannerError(t('scanner.error_permissions') || "Could not start camera. Please ensure camera permissions are granted.");
-      }
-    };
-
-    // Delay initialization slightly to ensure element is in DOM
-    const timer = setTimeout(startScanner, 500);
-
-    return () => {
-      clearTimeout(timer);
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop().catch(e => console.error("Error stopping scanner", e));
-      }
-    };
-  }, [navigate]);
-
-  const handleManualSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const barcode = manualBarcode.replace(/\s+/g, '');
-    if (barcode.length < 3) {
-      alert("Enter a valid barcode");
-      return;
-    }
-    setPendingCertifyingBody('');
-    navigate(`/analysis?barcode=${encodeURIComponent(barcode)}`);
-  };
-
-  const handleManualTextSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (manualText.trim().length < 2) {
-      alert("Enter valid ingredients list");
-      return;
-    }
-    setPendingAnalysisText(manualText.trim());
-    setPendingCertifyingBody('');
-    navigate('/analysis?type=text');
-  };
-
-  const clearPhotoReview = () => {
-    setShowOcrReview(false);
-    setReviewOcrText('');
-    setReviewImagePreview(null);
-    setPendingAnalysisImage(null);
-    setPendingAnalysisImageOcrText(null);
-    setIsProcessingImage(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleAnalyzeReviewedPhoto = () => {
-    setPendingAnalysisImageOcrText(reviewOcrText.trim() || null);
-    setPendingCertifyingBody('');
-    navigate('/analysis?type=image');
-  };
-
-  const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (event) => resolve(event.target?.result as string);
-    reader.onerror = () => reject(new Error('Could not read selected file.'));
-    reader.readAsDataURL(file);
-  });
-
-  const extractIngredientFocusedText = (text: string) => {
-    const normalized = (text || '').replace(/\r/g, '');
-    if (!normalized.trim()) return '';
-
-    const markers = [/\bingredients?\b/i, /\bingredient list\b/i, /\bcontains\b/i];
-    const startMatch = markers.map(pattern => normalized.match(pattern)).find(Boolean);
-    let candidate = startMatch?.index !== undefined ? normalized.slice(startMatch.index) : normalized;
-
-    const stopMarkers = [
-      /\bnutrition(?:al)? facts\b/i,
-      /\bsupplement facts\b/i,
-      /\bdirections\b/i,
-      /\bdistributed by\b/i,
-      /\bmanufactured by\b/i,
-      /\bproduct of\b/i,
-      /\bbest before\b/i,
-      /\bexpiry\b/i,
-      /\bexpiration\b/i,
-      /\bstorage\b/i,
-      /\bkeep refrigerated\b/i,
-      /\bnet wt\b/i,
-      /\bbarcode\b/i,
-    ];
-    const endIndexes = stopMarkers
-      .map(pattern => candidate.search(pattern))
-      .filter(index => index >= 0);
-    if (endIndexes.length > 0) candidate = candidate.slice(0, Math.min(...endIndexes));
-
-    return candidate.replace(/\s+/g, ' ').trim().replace(/^[ .:-]+|[ .:-]+$/g, '');
-  };
-
-  const compressImage = (base64: string) => new Promise<string>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const MAX_DIMENSION = 1600;
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height) {
-        if (width > MAX_DIMENSION) {
-          height *= MAX_DIMENSION / width;
-          width = MAX_DIMENSION;
-        }
-      } else if (height > MAX_DIMENSION) {
-        width *= MAX_DIMENSION / height;
-        height = MAX_DIMENSION;
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        resolve(base64);
-        return;
-      }
-      ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.85));
-    };
-    img.onerror = () => reject(new Error('Could not load selected image.'));
-    img.src = base64;
-  });
-
-  const runBackendOcr = async (dataUrl: string, mimeType: string, filename: string, fallbackText = '') => {
-    const response = await fetch('/api/ocr', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fileBase64: dataUrl,
-        mimeType,
-        filename,
-        fallbackText
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Backend OCR failed.');
-    }
-
-    const data = await response.json();
-    return typeof data.text === 'string' ? data.text.trim() : '';
-  };
-
-  const handleCapturePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setShowOcrReview(false);
-    setReviewOcrText('');
-    setReviewImagePreview(null);
-    setIsProcessingImage(true);
-    setImageProcessingStep('Preparing Photo...');
-
-    try {
-      const rawDataUrl = await readFileAsDataUrl(file);
-      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-      const uploadDataUrl = isPdf ? rawDataUrl : await compressImage(rawDataUrl);
-      const mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
-      setPendingAnalysisImage(uploadDataUrl);
-      setReviewImagePreview(isPdf ? null : uploadDataUrl);
-      setPendingAnalysisImageOcrText(null);
-      setImageProcessingStep('Reading Label Text with Google Vision...');
-
-      let extractedReviewText = '';
-      try {
-        extractedReviewText = await runBackendOcr(uploadDataUrl, mimeType, file.name);
-      } catch (ocrError) {
-        console.warn('Backend Google Vision OCR failed, attempting local OCR fallback for images:', ocrError);
-      }
-
-      if (!extractedReviewText && !isPdf) {
-        try {
-          setImageProcessingStep('Using Local OCR Fallback...');
-          const { extractTextFromImage } = await import('../utils/localOcr');
-          extractedReviewText = await extractTextFromImage(uploadDataUrl);
-        } catch (ocrError) {
-          console.warn('Local OCR fallback failed:', ocrError);
-        }
-      }
-
-      extractedReviewText = extractIngredientFocusedText(extractedReviewText);
-      setReviewOcrText(extractedReviewText);
-      setPendingAnalysisImageOcrText(extractedReviewText || null);
-      setShowOcrReview(true);
-      setIsProcessingImage(false);
-    } catch (error) {
-      console.warn('Could not process selected file.', error);
-      setScannerError('Could not read the selected image. Try another photo.');
-      setIsProcessingImage(false);
-    }
-  };
-
-  const retryScanner = () => {
-    window.location.reload();
-  };
-
-  return (
-    <div className="flex flex-col h-screen max-w-md mx-auto w-full bg-black text-white relative overflow-hidden sm:shadow-2xl sm:border-x sm:border-white/10">
-      
-      {/* Scanner Wrapper */}
-      <div className="flex-1 relative w-full h-full bg-black">
-        <div id="reader" className="absolute inset-0 [&_video]:!object-cover"></div>
-        
-        {/* Loading/Error State */}
-        {!isScannerReady && !scannerError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-20">
-            <Loader2 size={40} className="animate-spin text-[#C9A84C] mb-4" />
-            <p className="text-sm font-bold tracking-widest uppercase opacity-60">{t('scanner.initializing') || 'Initializing Camera...'}</p>
-          </div>
-        )}
-
-        {scannerError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-20 p-8 text-center">
-            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
-              <Camera size={32} className="text-red-500" />
-            </div>
-            <p className="text-sm font-bold mb-6">{scannerError}</p>
-            <button 
-              onClick={retryScanner}
-              className="flex items-center gap-2 bg-white text-black px-6 py-3 rounded-xl font-bold text-xs uppercase"
-            >
-              <RefreshCw size={16} />
-              {t('scanner.retry_camera') || 'Retry Camera'}
-            </button>
-          </div>
-        )}
-        
-        {/* Target Marker Overlay */}
-        <div className="absolute top-[30%] left-1/2 -translate-x-1/2 w-[82%] max-w-[340px] h-[160px] pointer-events-none z-10">
-          {/* Animated Corners */}
-          <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#C9A84C] opacity-80 rounded-tl-xl animate-pulse"></div>
-          <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-[#C9A84C] opacity-80 rounded-tr-xl animate-pulse"></div>
-          <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-[#C9A84C] opacity-80 rounded-bl-xl animate-pulse"></div>
-          <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-[#C9A84C] opacity-80 rounded-br-xl animate-pulse"></div>
-          
-          {/* Sweeping Laser Line */}
-          <div className="absolute top-0 left-0 w-full h-0.5 bg-green-400 shadow-[0_0_12px_rgba(74,222,128,1)] animate-scan"></div>
-        </div>
-
-        {/* Back Button */}
-        <button 
-          onClick={() => navigate(-1)}
-          className="absolute top-6 left-6 w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center z-30"
-        >
-          <X size={20} />
-        </button>
-      </div>
-      
-      {/* Bottom Controls */}
-      <div className="absolute bottom-0 left-0 w-full p-6 pt-8 bg-[#1a1a1a]/95 backdrop-blur-md rounded-t-[32px] border-t border-white/10 shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-20 flex flex-col gap-5">
-        
-        <input 
-          type="file" 
-          accept="image/*,application/pdf" 
-          className="hidden" 
-          ref={fileInputRef}
-          onChange={handleCapturePhoto}
-        />
-
-        {showOcrReview ? (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-start gap-3">
-              {reviewImagePreview && (
-                <img
-                  src={reviewImagePreview}
-                  alt="Ingredient label"
-                  className="w-16 h-16 rounded-xl object-cover border border-white/10 bg-black/40"
-                />
-              )}
-              {!reviewImagePreview && (
-                <div className="w-16 h-16 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center text-[10px] font-bold text-white/60">
-                  PDF
-                </div>
-              )}
-              <textarea
-                className="min-h-24 flex-1 resize-none bg-white/10 rounded-xl px-4 py-3 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-xs leading-relaxed backdrop-blur-md"
-                placeholder="Extracted ingredients..."
-                value={reviewOcrText}
-                onChange={(e) => setReviewOcrText(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={clearPhotoReview}
-                className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 text-white py-3 rounded-xl font-bold tracking-wider transition-all uppercase text-[10px]"
-              >
-                <Camera size={16} className="text-[#C9A84C]" />
-                Retake
-              </button>
-              <button
-                type="button"
-                onClick={handleAnalyzeReviewedPhoto}
-                disabled={!reviewOcrText.trim()}
-                className="flex items-center justify-center gap-2 bg-[#C9A84C] hover:bg-[#b09341] text-[#1B6B3A] py-3 rounded-xl font-bold tracking-wider transition-all disabled:opacity-50 uppercase text-[10px]"
-              >
-                <Check size={16} />
-                Analyze
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isProcessingImage}
-              className="w-full flex items-center justify-center gap-3 bg-[#1B6B3A] hover:bg-[#14532b] text-white py-4 rounded-2xl font-bold tracking-wider transition-all disabled:opacity-70 shadow-lg shadow-[#1B6B3A]/30 border border-[#1B6B3A]/50 active:scale-[0.98] uppercase text-xs"
-            >
-              {isProcessingImage ? (
-                <>
-                  <Loader2 size={20} className="animate-spin text-[#C9A84C]" />
-                  <span className="text-white">{imageProcessingStep}</span>
-                </>
-              ) : (
-                <>
-                  <Camera size={20} className="text-[#C9A84C]" />
-                  <span>{t('scanner.snap_photo') || 'Upload Label Photo / PDF'}</span>
-                </>
-              )}
-            </button>
-
-            <div className="flex items-center gap-3 w-full">
-               <div className="h-px bg-white/10 flex-1"></div>
-               <span className="text-[10px] text-white/40 font-bold tracking-widest uppercase">{t('scanner.or_enter_barcode') || 'Barcode or Text'}</span>
-               <div className="h-px bg-white/10 flex-1"></div>
-            </div>
-
-            <form onSubmit={handleManualSubmit} className="flex flex-row relative">
-              <input
-                className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
-                placeholder={t('scanner.placeholder') || "e.g. 3017620..."}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={manualBarcode}
-                onChange={(e) => setManualBarcode(e.target.value.replace(/[^\d]/g, ''))}
-              />
-              <button
-                type="submit"
-                className="absolute right-1.5 top-1.5 bottom-1.5 bg-[#C9A84C] hover:bg-[#b09341] px-5 rounded-lg transition-colors flex items-center justify-center text-[#1B6B3A] shadow-md disabled:opacity-40"
-                disabled={!manualBarcode.trim()}
-              >
-                <Search size={20} className="stroke-[3]" />
-              </button>
-            </form>
-
-            <form onSubmit={handleManualTextSubmit} className="flex flex-row relative mt-1">
-              <input
-                className="flex-1 bg-white/10 rounded-xl px-4 py-3.5 font-nunito text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/50 transition-all text-sm backdrop-blur-md"
-                placeholder="Paste ingredients for backend analysis..."
-                type="text"
-                value={manualText}
-                onChange={(e) => setManualText(e.target.value)}
-              />
-              <button
-                type="submit"
-                className="absolute right-1.5 top-1.5 bottom-1.5 bg-[#C9A84C] hover:bg-[#b09341] px-5 rounded-lg transition-colors flex items-center justify-center text-[#1B6B3A] shadow-md disabled:opacity-40"
-                disabled={!manualText.trim()}
-              >
-                <Search size={20} className="stroke-[3]" />
-              </button>
-            </form>
-          </>
-        )}
-
-        <button 
-          className="w-full py-2 mt-1 text-[10px] font-bold tracking-widest uppercase text-white/40 hover:text-white transition-colors"
-          onClick={() => navigate(-1)} 
-        >
-          {t('scanner.cancel_return') || 'Cancel & Return'}
-        </button>
-      </div>
-    </div>
-  );
+ const c = useCopy(); const navigate = useNavigate(); const [params] = useSearchParams(); const online = useOnline();
+ const prior = useAppStore(s => s.draft);
+ const [mode,setMode] = useState<'barcode'|'photo'|'text'>(params.get('mode') === 'text' ? 'text' : params.get('mode') === 'photo' ? 'photo' : 'barcode');
+ const [barcode,setBarcode] = useState(prior?.barcode || ''); const [text,setText] = useState(prior?.text || '');
+ const [name,setName] = useState(prior?.name || ''); const [preview,setPreview] = useState<string|null>(null);
+ const [review,setReview] = useState(false); const [reading,setReading] = useState(false);
+ const [camera,setCamera] = useState<'off'|'starting'|'on'>('off'); const [error,setError] = useState('');
+ const scanner = useRef<Html5Qrcode|null>(null); const session = useRef(0); const detected = useRef(false);
+ const ocr = useRef<AbortController|null>(null); const input = useRef<HTMLInputElement>(null); const mounted = useRef(true);
+ const setDraft = useAppStore(s => s.setDraft); const setBusy = useAppStore(s => s.setBusy);
+ const stop = async () => {
+  session.current++; const active = scanner.current; scanner.current = null;
+  try { if(active?.isScanning) await active.stop(); active?.clear(); } catch { /* track already released */ }
+  if(mounted.current) { setCamera('off'); setBusy(false); }
+ };
+ useEffect(() => { mounted.current=true; return () => {mounted.current=false; void stop(); ocr.current?.abort(); setBusy(false);}; }, []);
+ // Preserve reviewed text across navigation/refresh. Raw photos never enter session storage.
+ useEffect(() => {
+  if(text || barcode || name) setDraft({id: prior?.id || crypto.randomUUID(),mode,text,barcode,name});
+ }, [text,barcode,name,mode]);
+ const submitBarcode = async (value: string) => {
+  const clean=value.replace(/\s/g,'');
+  if(!validBarcode(clean)) {setError(c('invalidBarcode'));return;}
+  if(detected.current) return; detected.current=true;
+  await stop(); setDraft({id:crypto.randomUUID(),mode:'barcode',barcode:clean}); navigate('/analysis');
+ };
+ const start = async () => {
+  if(camera !== 'off') return;
+  const token=++session.current; setError(''); setBusy(true); setCamera('starting'); detected.current=false;
+  let instance: Html5Qrcode | null = null;
+  try {
+   const {Html5Qrcode,Html5QrcodeSupportedFormats:F} = await import('html5-qrcode');
+   if(token!==session.current || !mounted.current) return;
+   instance=new Html5Qrcode('reader',{formatsToSupport:[F.EAN_13,F.EAN_8,F.UPC_A],verbose:false}); scanner.current=instance;
+   await instance.start({facingMode:'environment'},{fps:8,qrbox:{width:240,height:140}},value => { if(token===session.current && validBarcode(value)) void submitBarcode(value); },() => {});
+   if(token!==session.current || !mounted.current) {if(instance.isScanning) await instance.stop();instance.clear();return;}
+   setCamera('on');
+  } catch {
+   try {if(instance?.isScanning) await instance.stop();instance?.clear();} catch {}
+   if(token===session.current && mounted.current) {scanner.current=null;setCamera('off');setBusy(false);setError(c('cameraError'));}
+  }
+ };
+ const cancelOcr = () => {ocr.current?.abort();ocr.current=null;setReading(false);setBusy(false);};
+ const changeMode = (value: typeof mode) => {void stop();cancelOcr();setError('');setMode(value);};
+ const chooseFile = async (file?: File) => {
+  if(!file) return; cancelOcr(); const request = new AbortController(); ocr.current=request;
+  setError(''); setReview(false); setPreview(null); setReading(true); await stop(); setBusy(true);
+  try {
+   if(!await validateLabelFile(file)) {setError(c('invalidFile'));return;}
+   const raw = await readLabelFile(file); const isPdf = file.type==='application/pdf';
+   const dataUrl = isPdf ? raw : await preparePhoto(raw); if(request.signal.aborted) return;
+   setPreview(isPdf ? null : dataUrl); let extracted='';
+   if(online) {
+    try { const result=await fetchJson('/api/ocr',{method:'POST',body:JSON.stringify({fileBase64:dataUrl,mimeType:isPdf ? file.type : 'image/jpeg',filename:file.name}),signal:request.signal},18000); extracted=typeof result.text==='string' ? result.text : ''; } catch { /* review and local fallback below */ }
+   }
+   if(!extracted && !isPdf && !request.signal.aborted && online) {
+    try { const {extractTextFromImage}=await import('../utils/localOcr'); extracted=await extractTextFromImage(dataUrl,request.signal); } catch {}
+   }
+   if(request.signal.aborted || !mounted.current) return;
+   setText(extracted.slice(0,10000)); setReview(true);
+   if(!hasUsableIngredients(extracted)) setError(c('noOcr'));
+  } catch { if(!request.signal.aborted && mounted.current) {setError(c('noOcr'));setReview(true);} }
+  finally {if(!request.signal.aborted && mounted.current) {setReading(false);setBusy(false);} if(input.current) input.current.value='';}
+ };
+ const submitText = () => {
+  if(!hasUsableIngredients(text) || text.length>10000) {setError(c('invalidIngredients'));return;}
+  setDraft({id:crypto.randomUUID(),mode:mode==='photo'?'photo':'text',text:text.trim(),name:name.trim(),image:preview}); navigate('/analysis');
+ };
+ return <div className="page page-narrow"><div className="page-heading"><h1>{c('scanTitle')}</h1><p>{c('scanHelp')}</p></div>
+  <div className="scan-tabs" role="tablist" aria-label={c('scan')}>
+   {([['barcode','barcode',ScanLine],['photo','photo',Camera],['text','ingredients',Type]] as const).map(([value,label,Icon]) => <button key={value} role="tab" id={'tab-'+value} aria-controls="scan-input" aria-selected={mode===value} onClick={() => changeMode(value)}><Icon size={19}/>{c(label)}</button>)}
+  </div>
+  <div id="scan-input" role="tabpanel" aria-labelledby={'tab-'+mode} className="form-grid">
+   {mode==='barcode' && <><div className="camera-area"><div id="reader" />{camera==='off' && <><ScanLine size={44}/><h2>{c('cameraTitle')}</h2><p>{c('cameraHelp')}</p></>}{camera==='off' ? <button className="btn" onClick={() => void start()}><Camera size={20}/>{c('startCamera')}</button> : <button className="btn" onClick={() => void stop()}><X size={18}/>{c(camera==='starting'?'starting':'stopCamera')}</button>}</div>
+    <form className="form-grid" onSubmit={e => {e.preventDefault();void submitBarcode(barcode);}}><div className="field"><label htmlFor="barcode">{c('manualBarcode')}</label><input id="barcode" className="input" inputMode="numeric" autoComplete="off" maxLength={20} value={barcode} onChange={e => {setBarcode(e.target.value);detected.current=false;}} placeholder="0123456789012" /></div><button className="btn btn-primary" type="submit" disabled={!online}>{c('lookup')}</button></form></>}
+   {mode==='photo' && <><div className="upload-area"><ImageIcon size={36}/><h2>{c('photoTitle')}</h2><p>{c('photoHelp')}</p><input ref={input} className="sr-only" tabIndex={-1} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={e => void chooseFile(e.target.files?.[0])} aria-label={c('choosePhoto')}/><button className="btn btn-secondary" onClick={() => input.current?.click()} disabled={reading}><Upload size={19}/>{c('choosePhoto')}</button><p className="small">{c('fileHelp')}</p></div>
+    {reading && <div role="status"><strong>{c('reading')}</strong><div className="progress-line"/><button className="btn btn-secondary" onClick={cancelOcr}>{c('cancel')}</button></div>}
+    {preview && <img className="photo-preview" src={preview} alt={c('photo')}/>}
+   </>}
+   {(mode==='text' || (mode==='photo' && review && !reading)) && <form className="form-grid" onSubmit={e => {e.preventDefault();submitText();}}>
+    {mode==='photo' && <div><h2>{c('reviewText')}</h2><p className="muted spaced">{c('reviewHelp')}</p></div>}
+    <div className="field"><label htmlFor="product-name">{c('productName')}</label><input id="product-name" className="input" value={name} maxLength={160} onChange={e => setName(e.target.value)}/></div>
+    <div className="field"><label htmlFor="ingredients">{c('ingredientLabel')}</label><textarea id="ingredients" className="input" value={text} maxLength={10000} onChange={e => setText(e.target.value)} placeholder={c('ingredientPlaceholder')} aria-describedby="ingredient-help"/><p className="field-help" id="ingredient-help">{c('englishEvidence')}</p></div>
+    <button type="submit" className="btn btn-primary">{c('analyze')}</button>
+   </form>}
+   {error && <p className="notice notice-warning" role="alert">{error}</p>}
+   {(text || barcode || name) && <button className="btn btn-quiet" onClick={() => {cancelOcr();void stop();setDraft(null);navigate('/');}}>{c('cancel')}</button>}
+   <p className="field-help">{c('limit')}</p>
+  </div>
+ </div>;
 }

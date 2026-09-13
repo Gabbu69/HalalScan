@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 import { analyzePayload } from './_halalscan.js';
+import { validateAnalysisPayload } from '../shared/input.js';
 import { buildMissingApiKeyError, extractGeminiErrorMessage, getGeminiApiKey, getGeminiModel } from './_gemini.js';
 
 const isLegacyGeminiPayload = (body: any) =>
@@ -77,9 +78,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    validateAnalysisPayload(req.body || {});
     const result = await analyzePayload(req.body || {});
     return res.status(200).json(result);
   } catch (error) {
+    if (error instanceof Error && error.message === 'INVALID_ANALYSIS') return res.status(400).json({ code: 'INVALID_ANALYSIS', error: 'Use text fields and an ingredient list of at most 10,000 characters.' });
     return res.status(500).json({
       code: 'ANALYSIS_FAILED',
       error: error instanceof Error ? error.message : String(error || 'Analysis failed'),

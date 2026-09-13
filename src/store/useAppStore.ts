@@ -1,130 +1,75 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { AnalysisDraft, ScanRecord } from '../types';
+import * as storage from '../lib/scanStorage';
+export type { ScanRecord } from '../types';
 
-export interface ScanRecord {
-  id: string;
-  date: string;
-  barcode: string;
-  name: string;
-  brand: string;
-  image: string | null;
-  ingredients: string;
-  verdict: 'HALAL' | 'HARAM' | 'MASHBOOH' | 'HALAL COMPLIANT' | 'NON-COMPLIANT' | 'REQUIRES REVIEW';
-  confidence: number;
-  flagged_ingredients: string[];
-  reason: string;
-  recommendation: string;
-  certification?: any;
-  ingredient_results?: any[];
-  triggered_rules?: string[];
-  rubric_evidence?: any;
-  architectureDetails?: any;
+function legacyPreferences() {
+  try { return JSON.parse(localStorage.getItem(storage.LEGACY_STORAGE_KEY) || '{}').state || {}; } catch { return {}; }
 }
-
+function restoredDraft(): AnalysisDraft | null {
+  try { return JSON.parse(sessionStorage.getItem('halalscan-draft') || 'null'); } catch { return null; }
+}
+const old = legacyPreferences();
+let initialization: Promise<void> | null = null;
 interface AppState {
-  hasOnboarded: boolean;
-  isDarkMode: boolean;
-  madhab: string;
-  language: string;
-  scans: ScanRecord[];
-  pendingAnalysisImage: string | null;
-  pendingAnalysisImageOcrText: string | null;
-  pendingAnalysisText: string | null;
-  pendingCertifyingBody: string;
-  userLocation: { lat: number; lng: number } | null;
-  locationPermissionStatus: 'prompt' | 'granted' | 'denied';
-  userProfile: { name: string; email: string; avatar: string | null };
-
-  
-  setHasOnboarded: (val: boolean) => void;
-  toggleDarkMode: () => void;
-  setMadhab: (madhab: string) => void;
-  setLanguage: (language: string) => void;
-  setUserLocation: (loc: { lat: number; lng: number } | null) => void;
-  setLocationPermissionStatus: (status: 'prompt' | 'granted' | 'denied') => void;
-  updateUserProfile: (profile: Partial<{ name: string; email: string; avatar: string | null }>) => void;
-  
-  addScan: (scan: ScanRecord) => void;
-  setScans: (scans: ScanRecord[]) => void;
-  deleteScan: (id: string) => void;
-  clearScans: () => void;
-  setPendingAnalysisImage: (base64: string | null) => void;
-  setPendingAnalysisImageOcrText: (text: string | null) => void;
-  setPendingAnalysisText: (text: string | null) => void;
-  setPendingCertifyingBody: (text: string) => void;
-
-  getStats: () => { total: number; halal: number; haram: number };
+  hasOnboarded: boolean; isDarkMode: boolean; language: string; madhab: string;
+  scans: ScanRecord[]; historyReady: boolean; storageError: string | null;
+  draft: AnalysisDraft | null; busy: boolean;
+  setHasOnboarded: (value: boolean) => void;
+  toggleDarkMode: () => void; setLanguage: (value: string) => void;
+  initialize: () => Promise<void>; reloadScans: () => Promise<void>;
+  addScan: (scan: ScanRecord) => Promise<boolean>;
+  deleteScan: (id: string) => Promise<boolean>;
+  clearScans: () => Promise<boolean>; toggleFavorite: (id: string) => Promise<boolean>;
+  setDraft: (draft: AnalysisDraft | null) => void; setBusy: (busy: boolean) => void;
+  clearError: () => void; resetData: () => Promise<boolean>;
+  getStats: () => { total: number; halal: number; haram: number; review: number };
 }
-
-export const useAppStore = create<AppState>()(
-  persist(
-    (set, get) => ({
-      hasOnboarded: false,
-      isDarkMode: false,
-      madhab: "Shafi'i",
-      language: "English",
-      scans: [],
-      pendingAnalysisImage: null,
-      pendingAnalysisImageOcrText: null,
-      pendingAnalysisText: null,
-      pendingCertifyingBody: '',
-      userLocation: null,
-      locationPermissionStatus: 'prompt',
-      userProfile: { name: 'HalalScan Prototype', email: '', avatar: null },
-      
-      setHasOnboarded: (val: boolean) => set({ hasOnboarded: val }),
-      toggleDarkMode: () => set((state) => {
-        const newDarkMode = !state.isDarkMode;
-        if (newDarkMode) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-        return { isDarkMode: newDarkMode };
-      }),
-      setMadhab: (madhab: string) => set({ madhab }),
-      setLanguage: (language: string) => set({ language }),
-      setUserLocation: (userLocation: { lat: number; lng: number } | null) => set({ userLocation }),
-      setLocationPermissionStatus: (locationPermissionStatus: 'prompt' | 'granted' | 'denied') => set({ locationPermissionStatus }),
-      updateUserProfile: (profile) => set((state) => ({ userProfile: { ...state.userProfile, ...profile } })),
-      
-      addScan: (scan) => set((state) => ({ 
-        scans: [scan, ...state.scans] 
-      })),
-      setScans: (scans) => set({ scans }),
-      deleteScan: (id) => set((state) => ({ 
-        scans: state.scans.filter(s => s.id !== id) 
-      })),
-      clearScans: () => set({ scans: [] }),
-      setPendingAnalysisImage: (base64) => set({ pendingAnalysisImage: base64 }),
-      setPendingAnalysisImageOcrText: (text) => set({ pendingAnalysisImageOcrText: text }),
-      setPendingAnalysisText: (text) => set({ pendingAnalysisText: text }),
-      setPendingCertifyingBody: (text) => set({ pendingCertifyingBody: text }),
-
-      getStats: () => {
-        const scans = get().scans;
-        return {
-          total: scans.length,
-          halal: scans.filter(s => s.verdict !== 'HARAM' && s.verdict !== 'NON-COMPLIANT').length,
-          haram: scans.filter(s => s.verdict === 'HARAM' || s.verdict === 'NON-COMPLIANT').length,
-        };
-      }
-    }),
-    {
-      name: 'halalscan-storage',
-      partialize: (state) => ({ 
-        hasOnboarded: state.hasOnboarded,
-        isDarkMode: state.isDarkMode,
-        madhab: state.madhab,
-        language: state.language,
-        scans: state.scans,
-        userProfile: state.userProfile
-      }), // don't persist pending image
-      onRehydrateStorage: () => (state) => {
-        if (state?.isDarkMode) {
-          document.documentElement.classList.add('dark');
-        }
-      }
-    }
-  )
-);
+export const useAppStore = create<AppState>()(persist((set, get) => {
+  const mutate = async (operation: () => Promise<void>) => {
+    try { await get().initialize(); if (!get().historyReady) throw new Error('History is unavailable.');
+      await operation(); await get().reloadScans(); set({ storageError: null }); return true;
+    } catch { set({ storageError: 'Your change could not be saved on this device. Free up browser storage and try again.' }); return false; }
+  };
+  return {
+    hasOnboarded: old.hasOnboarded || false, isDarkMode: old.isDarkMode || false,
+    language: old.language || 'English', madhab: 'General',
+    scans: [], historyReady: false, storageError: null, draft: restoredDraft(), busy: false,
+    setHasOnboarded: hasOnboarded => set({ hasOnboarded }),
+    toggleDarkMode: () => set(state => ({ isDarkMode: !state.isDarkMode })),
+    setLanguage: language => set({ language }),
+    setBusy: busy => set({ busy }), clearError: () => set({ storageError: null }),
+    setDraft: draft => {
+      set({ draft });
+      try {
+        if (draft) sessionStorage.setItem('halalscan-draft', JSON.stringify({ ...draft, image: null }));
+        else sessionStorage.removeItem('halalscan-draft');
+      } catch { /* the in-memory draft still works when session storage is unavailable */ }
+    },
+    initialize: () => {
+      if (!initialization) initialization = (async () => {
+        try { await storage.migrateLegacyStorage(localStorage); await get().reloadScans(); }
+        catch { set({ storageError: 'Saved history could not be opened. Existing data has been kept. Enable browser storage and retry.', historyReady: false }); initialization = null; }
+      })();
+      return initialization;
+    },
+    reloadScans: async () => { set({ scans: await storage.listScans(), historyReady: true }); },
+    addScan: scan => mutate(() => storage.saveScan(scan)),
+    deleteScan: id => mutate(() => storage.removeScan(id)),
+    toggleFavorite: id => mutate(() => storage.toggleScanFavorite(id)),
+    clearScans: () => mutate(() => storage.clearScanStorage()),
+    resetData: async () => {
+      if (!await get().clearScans()) return false;
+      try { localStorage.removeItem(storage.LEGACY_STORAGE_KEY); sessionStorage.removeItem('halalscan-draft'); }
+      catch { set({ storageError: 'History cleared, but browser preferences could not be reset.' }); return false; }
+      set({ hasOnboarded: false, isDarkMode: false, language: 'English', draft: null });
+      return true;
+    },
+    getStats: () => {
+      const scans = get().scans;
+      return { total: scans.length, halal: scans.filter(s => s.verdict === 'HALAL COMPLIANT').length,
+        haram: scans.filter(s => s.verdict === 'NON-COMPLIANT').length, review: scans.filter(s => s.verdict === 'REQUIRES REVIEW').length };
+    },
+  };
+}, { name: storage.PREFERENCES_KEY, partialize: state => ({ hasOnboarded: state.hasOnboarded, isDarkMode: state.isDarkMode, language: state.language }) }));
