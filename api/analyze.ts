@@ -1,10 +1,16 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI } from '@google/genai';
-import { analyzePayload } from './_halalscan.js';
-import { buildMissingApiKeyError, extractGeminiErrorMessage, getGeminiApiKey, getGeminiModel } from './_gemini.js';
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { GoogleGenAI } from "@google/genai";
+import { analyzePayload } from "./_halalscan.js";
+import { validateAnalysisPayload } from "../shared/input.js";
+import {
+  buildMissingApiKeyError,
+  extractGeminiErrorMessage,
+  getGeminiApiKey,
+  getGeminiModel,
+} from "./_gemini.js";
 
 const isLegacyGeminiPayload = (body: any) =>
-  typeof body?.prompt === 'string' &&
+  typeof body?.prompt === "string" &&
   !body.productName &&
   !body.name &&
   !body.ingredients &&
@@ -14,12 +20,15 @@ const isLegacyGeminiPayload = (body: any) =>
   !body.certifyingBody &&
   !body.certifying_body;
 
-const handleLegacyGeminiAnalyze = async (req: VercelRequest, res: VercelResponse) => {
+const handleLegacyGeminiAnalyze = async (
+  req: VercelRequest,
+  res: VercelResponse,
+) => {
   const { prompt, imageBase64, mimeType } = req.body;
-  if (typeof prompt !== 'string' || !prompt.trim()) {
+  if (typeof prompt !== "string" || !prompt.trim()) {
     return res.status(400).json({
-      code: 'INVALID_PROMPT',
-      error: 'A non-empty prompt string is required.',
+      code: "INVALID_PROMPT",
+      error: "A non-empty prompt string is required.",
     });
   }
 
@@ -33,7 +42,11 @@ const handleLegacyGeminiAnalyze = async (req: VercelRequest, res: VercelResponse
     const model = getGeminiModel();
     console.log(`Gemini analyze fallback using ${envName} with ${model}.`);
 
-    let contents: string | Array<{ text: string } | { inlineData: { data: string; mimeType: string } }>;
+    let contents:
+      | string
+      | Array<
+          { text: string } | { inlineData: { data: string; mimeType: string } }
+        >;
     if (imageBase64 && mimeType) {
       contents = [
         { text: prompt.trim() },
@@ -46,30 +59,35 @@ const handleLegacyGeminiAnalyze = async (req: VercelRequest, res: VercelResponse
     const response = await ai.models.generateContent({
       model,
       contents,
-      config: { responseMimeType: 'application/json' },
+      config: { responseMimeType: "application/json" },
     });
 
-    const jsonStr = (response.text || '{}').replace(/```json/g, '').replace(/```/g, '').trim();
+    const jsonStr = (response.text || "{}")
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
     try {
       return res.status(200).json(JSON.parse(jsonStr));
     } catch {
       return res.status(502).json({
-        code: 'GEMINI_BAD_JSON',
-        error: 'Gemini returned a response that was not valid JSON.',
+        code: "GEMINI_BAD_JSON",
+        error: "Gemini returned a response that was not valid JSON.",
         rawPreview: jsonStr.slice(0, 300),
       });
     }
   } catch (error) {
     return res.status(502).json({
-      code: 'GEMINI_UPSTREAM_ERROR',
+      code: "GEMINI_UPSTREAM_ERROR",
       error: extractGeminiErrorMessage(error),
     });
   }
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ code: 'METHOD_NOT_ALLOWED', error: 'Method Not Allowed' });
+  if (req.method !== "POST") {
+    return res
+      .status(405)
+      .json({ code: "METHOD_NOT_ALLOWED", error: "Method Not Allowed" });
   }
 
   if (isLegacyGeminiPayload(req.body)) {
@@ -77,13 +95,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    validateAnalysisPayload(req.body || {});
     const result = await analyzePayload(req.body || {});
     return res.status(200).json(result);
   } catch (error) {
+    if (error instanceof Error && error.message === "INVALID_ANALYSIS")
+      return res
+        .status(400)
+        .json({
+          code: "INVALID_ANALYSIS",
+          error:
+            "Use text fields and an ingredient list of at most 10,000 characters.",
+        });
     return res.status(500).json({
-      code: 'ANALYSIS_FAILED',
-      error: error instanceof Error ? error.message : String(error || 'Analysis failed'),
+      code: "ANALYSIS_FAILED",
+      error:
+        error instanceof Error
+          ? error.message
+          : String(error || "Analysis failed"),
     });
   }
 }
-

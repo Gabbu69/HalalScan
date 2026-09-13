@@ -1,8 +1,14 @@
-import { createSign } from 'crypto';
-import { readFileSync } from 'fs';
-import path from 'path';
+import {
+  hasFullRuleCoverage,
+  decideVerdict,
+  verdictCopy,
+} from "../shared/verdict.js";
+import { createSign } from "crypto";
+import { readFileSync } from "fs";
+import path from "path";
 
-type RuleStatus = 'HARAM' | 'DOUBTFUL' | 'UNKNOWN' | 'HALAL' | 'INFO' | 'UNAVAILABLE';
+type RuleStatus =
+  "HARAM" | "DOUBTFUL" | "UNKNOWN" | "HALAL" | "INFO" | "UNAVAILABLE";
 
 type Rule = {
   id: string;
@@ -27,7 +33,8 @@ type KnowledgeBase = {
   certifying_bodies: CertifyingBody[];
 };
 
-export const RAG_GUARDRAIL = 'RAG explanation only: final product verdicts must still come from /api/analyze.';
+export const RAG_GUARDRAIL =
+  "RAG explanation only: final product verdicts must still come from /api/analyze.";
 
 const statusPriority: Record<string, number> = {
   HARAM: 4,
@@ -38,7 +45,6 @@ const statusPriority: Record<string, number> = {
   UNAVAILABLE: 0,
 };
 
-const serverlessHistory: any[] = [];
 const rapidApiCache = new Map<string, any>();
 let knowledgeBaseCache: KnowledgeBase | null = null;
 let googleAccessToken: { token: string; expiresAt: number } | null = null;
@@ -46,40 +52,61 @@ let googleAccessToken: { token: string; expiresAt: number } | null = null;
 export const loadKnowledgeBase = (): KnowledgeBase => {
   if (knowledgeBaseCache) return knowledgeBaseCache;
 
-  const jsonPath = path.join(process.cwd(), 'backend', 'data', 'halal_rules.json');
-  knowledgeBaseCache = JSON.parse(readFileSync(jsonPath, 'utf8')) as KnowledgeBase;
+  const jsonPath = path.join(
+    process.cwd(),
+    "backend",
+    "data",
+    "halal_rules.json",
+  );
+  knowledgeBaseCache = JSON.parse(
+    readFileSync(jsonPath, "utf8"),
+  ) as KnowledgeBase;
   return knowledgeBaseCache;
 };
 
-const normalizeText = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
+const normalizeText = (value: string) =>
+  value.trim().toLowerCase().replace(/\s+/g, " ");
 const normalizeEcodes = (value: string) =>
   normalizeText(value)
-    .replace(/[\u2010-\u2015]/g, '-')
-    .replace(/\be[\s-]+(?=\d)/g, 'e');
+    .replace(/[\u2010-\u2015]/g, "-")
+    .replace(/\be[\s-]+(?=\d)/g, "e");
 
 const containsTerm = (source: string, term: string) => {
   const sourceNorm = normalizeEcodes(source);
-  const termNorm = normalizeEcodes(term).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(^|[^a-z0-9])${termNorm}([^a-z0-9]|$)`, 'i').test(sourceNorm);
+  const termNorm = normalizeEcodes(term).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^a-z0-9])${termNorm}([^a-z0-9]|$)`, "i").test(
+    sourceNorm,
+  );
 };
 
-const tokenize = (value: string) => normalizeEcodes(value).match(/\b[a-z0-9]{2,}\b/g) || [];
+const tokenize = (value: string) =>
+  normalizeEcodes(value).match(/\b[a-z0-9]{2,}\b/g) || [];
 
 const extractENumbers = (source: string) => {
-  const matches = normalizeEcodes(source).toUpperCase().match(/\bE\d{3,4}[A-Z]?\b/g);
+  const matches = normalizeEcodes(source)
+    .toUpperCase()
+    .match(/\bE\d{3,4}[A-Z]?\b/g);
   return new Set(matches || []);
 };
 
-const getRuleMatch = (rule: Rule, ingredient: string, eNumbers: Set<string>) => {
-  const eNumberMatches = rule.e_numbers.filter(code => eNumbers.has(code.toUpperCase()));
-  const keywordMatches = rule.keywords.filter(keyword => containsTerm(ingredient, keyword));
+const getRuleMatch = (
+  rule: Rule,
+  ingredient: string,
+  eNumbers: Set<string>,
+) => {
+  const eNumberMatches = rule.e_numbers.filter((code) =>
+    eNumbers.has(code.toUpperCase()),
+  );
+  const keywordMatches = rule.keywords.filter((keyword) =>
+    containsTerm(ingredient, keyword),
+  );
 
   if (eNumberMatches.length === 0 && keywordMatches.length === 0) return null;
 
   const specificity = Math.max(
     0,
-    ...eNumberMatches.map(code => normalizeEcodes(code).length + 100),
-    ...keywordMatches.map(keyword => normalizeEcodes(keyword).length)
+    ...eNumberMatches.map((code) => normalizeEcodes(code).length + 100),
+    ...keywordMatches.map((keyword) => normalizeEcodes(keyword).length),
   );
 
   return {
@@ -101,58 +128,73 @@ const chooseStrongestRuleMatch = (matches: any[]) => {
     return (a.specificity || 0) - (b.specificity || 0);
   };
 
-  const haramMatches = matches.filter(match => match.status === 'HARAM');
+  const haramMatches = matches.filter((match) => match.status === "HARAM");
   if (haramMatches.length > 0) {
-    return haramMatches.reduce((best, item) => (compare(item, best) > 0 ? item : best));
+    return haramMatches.reduce((best, item) =>
+      compare(item, best) > 0 ? item : best,
+    );
   }
 
   const bestHalal = matches
-    .filter(match => match.status === 'HALAL')
-    .reduce((best, item) => (!best || compare(item, best) > 0 ? item : best), null);
+    .filter((match) => match.status === "HALAL")
+    .reduce(
+      (best, item) => (!best || compare(item, best) > 0 ? item : best),
+      null,
+    );
   const bestNonHalal = matches
-    .filter(match => !['HALAL', 'INFO'].includes(match.status))
-    .reduce((best, item) => (!best || compare(item, best) > 0 ? item : best), null);
+    .filter((match) => !["HALAL", "INFO"].includes(match.status))
+    .reduce(
+      (best, item) => (!best || compare(item, best) > 0 ? item : best),
+      null,
+    );
 
-  if (bestHalal && bestNonHalal && (bestHalal.specificity || 0) > (bestNonHalal.specificity || 0)) {
+  if (
+    bestHalal &&
+    bestNonHalal &&
+    (bestHalal.specificity || 0) > (bestNonHalal.specificity || 0)
+  ) {
     return bestHalal;
   }
 
-  return matches.reduce((best, item) => (compare(item, best) > 0 ? item : best));
+  return matches.reduce((best, item) =>
+    compare(item, best) > 0 ? item : best,
+  );
 };
 
 export const verifyCertifyingBody = (value?: string) => {
-  const input = (value || '').trim();
+  const input = (value || "").trim();
   if (!input) {
     return {
-      input: '',
-      status: 'MISSING',
+      input: "",
+      status: "MISSING",
       recognized: false,
       matched_body: null,
-      reason: 'No certifying body was provided.',
+      reason: "No certifying body was provided.",
     };
   }
 
   const needle = normalizeText(input);
-  const body = loadKnowledgeBase().certifying_bodies.find(item =>
-    [item.name, ...item.aliases].some(name => normalizeText(name) === needle)
+  const body = loadKnowledgeBase().certifying_bodies.find((item) =>
+    [item.name, ...item.aliases].some((name) => normalizeText(name) === needle),
   );
 
   if (!body) {
     return {
       input,
-      status: 'UNRECOGNIZED',
+      status: "UNRECOGNIZED",
       recognized: false,
       matched_body: null,
-      reason: 'The provided certifying body is not in the maintained recognized-body list.',
+      reason:
+        "The provided certifying body is not in the maintained recognized-body list.",
     };
   }
 
   return {
     input,
-    status: 'RECOGNIZED',
+    status: "RECOGNIZED",
     recognized: true,
     matched_body: body,
-    reason: `${body.name} is in the maintained recognized-body list.`,
+    reason: `${body.name} is a recognized body-name reference. This product and its certificate have not been verified.`,
   };
 };
 
@@ -160,16 +202,16 @@ export const evaluateIngredientAgainstRules = (ingredient: string) => {
   const matched: any[] = [];
   const eNumbers = extractENumbers(ingredient);
 
-  loadKnowledgeBase().rules.forEach(rule => {
+  loadKnowledgeBase().rules.forEach((rule) => {
     const ruleMatch = getRuleMatch(rule, ingredient, eNumbers);
     if (ruleMatch) matched.push(ruleMatch);
   });
 
   if (matched.length === 0) {
     return {
-      status: 'UNKNOWN' as RuleStatus,
+      status: "UNKNOWN" as RuleStatus,
       matched_rules: [],
-      reason: 'No explicit knowledge-base rule matched this ingredient.',
+      reason: "No explicit knowledge-base rule matched this ingredient.",
     };
   }
 
@@ -183,18 +225,18 @@ export const evaluateIngredientAgainstRules = (ingredient: string) => {
 };
 
 export const splitIngredients = (text: string) => {
-  const clean = (text || '').replace(/\bingredients?\s*[:.-]\s*/i, '');
+  const clean = (text || "").replace(/\bingredients?\s*[:.-]\s*/i, "");
   const parts: string[] = [];
-  let current = '';
+  let current = "";
   let depth = 0;
 
   for (const char of clean) {
-    if ('([{'.includes(char)) depth += 1;
-    if (')]}'.includes(char) && depth > 0) depth -= 1;
+    if ("([{".includes(char)) depth += 1;
+    if (")]}".includes(char) && depth > 0) depth -= 1;
 
-    if ((char === ',' || char === ';' || char === '\n') && depth === 0) {
+    if ((char === "," || char === ";" || char === "\n") && depth === 0) {
       parts.push(current);
-      current = '';
+      current = "";
     } else {
       current += char;
     }
@@ -202,8 +244,10 @@ export const splitIngredients = (text: string) => {
   parts.push(current);
 
   return parts
-    .map(part => part.replace(/\s+/g, ' ').replace(/^[\s.,:;\-]+|[\s.,:;\-]+$/g, ''))
-    .filter(item => item.length >= 2);
+    .map((part) =>
+      part.replace(/\s+/g, " ").replace(/^[\s.,:;\-]+|[\s.,:;\-]+$/g, ""),
+    )
+    .filter((item) => item.length >= 2);
 };
 
 export const retrieveKnowledge = (query: string, limit = 5) => {
@@ -213,26 +257,37 @@ export const retrieveKnowledge = (query: string, limit = 5) => {
   const queryENumbers = extractENumbers(query);
 
   const scoredRules = kb.rules
-    .map(rule => {
+    .map((rule) => {
       let score = 0;
       const matched_terms: string[] = [];
 
-      rule.e_numbers.forEach(code => {
-        if (queryENumbers.has(code.toUpperCase()) || containsTerm(normalizedQuery, code)) {
+      rule.e_numbers.forEach((code) => {
+        if (
+          queryENumbers.has(code.toUpperCase()) ||
+          containsTerm(normalizedQuery, code)
+        ) {
           score += 12;
           matched_terms.push(code);
         }
       });
 
-      rule.keywords.forEach(keyword => {
+      rule.keywords.forEach((keyword) => {
         if (containsTerm(normalizedQuery, keyword)) {
           score += 8;
           matched_terms.push(keyword);
         }
       });
 
-      const haystackTokens = new Set(tokenize([rule.id, rule.title, rule.category, rule.status, rule.source].join(' ')));
-      const overlap = [...queryTokens].filter(token => haystackTokens.has(token));
+      const haystackTokens = new Set(
+        tokenize(
+          [rule.id, rule.title, rule.category, rule.status, rule.source].join(
+            " ",
+          ),
+        ),
+      );
+      const overlap = [...queryTokens].filter((token) =>
+        haystackTokens.has(token),
+      );
       score += Math.min(overlap.length, 4);
 
       return {
@@ -248,13 +303,15 @@ export const retrieveKnowledge = (query: string, limit = 5) => {
         },
       };
     })
-    .filter(item => item.score > 0)
+    .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
-    .map(item => item.rule);
+    .map((item) => item.rule);
 
-  const certifyingBodies = kb.certifying_bodies.filter(body =>
-    [body.name, ...body.aliases].some(name => containsTerm(normalizedQuery, name))
+  const certifyingBodies = kb.certifying_bodies.filter((body) =>
+    [body.name, ...body.aliases].some((name) =>
+      containsTerm(normalizedQuery, name),
+    ),
   );
 
   return {
@@ -263,34 +320,55 @@ export const retrieveKnowledge = (query: string, limit = 5) => {
   };
 };
 
-export const buildRagChatResponse = (query: string, retrieval: ReturnType<typeof retrieveKnowledge>) => {
-  if (retrieval.rules.length === 0 && retrieval.certifying_bodies.length === 0) {
+export const buildRagChatResponse = (
+  query: string,
+  retrieval: ReturnType<typeof retrieveKnowledge>,
+) => {
+  if (
+    retrieval.rules.length === 0 &&
+    retrieval.certifying_bodies.length === 0
+  ) {
     return [
-      'I could not find a direct match in the maintained halal knowledge base.',
-      'Try asking about a specific ingredient, E-number, additive, or certifying body.',
+      "I could not find a direct match in the maintained halal knowledge base.",
+      "Try asking about a specific ingredient, E-number, additive, or certifying body.",
       RAG_GUARDRAIL,
-    ].join('\n');
+    ].join("\n");
   }
 
-  const lines = ['Knowledge-base matches:'];
-  retrieval.rules.forEach(rule => {
-    const terms = rule.matched_terms.length ? ` Matched: ${rule.matched_terms.join(', ')}.` : '';
-    lines.push(`- ${rule.id} [${rule.status}]: ${rule.title}. ${rule.reason} Source: ${rule.source}.${terms}`);
+  const lines = ["Knowledge-base matches:"];
+  retrieval.rules.forEach((rule) => {
+    const terms = rule.matched_terms.length
+      ? ` Matched: ${rule.matched_terms.join(", ")}.`
+      : "";
+    lines.push(
+      `- ${rule.id} [${rule.status}]: ${rule.title}. ${rule.reason} Source: ${rule.source}.${terms}`,
+    );
   });
-  retrieval.certifying_bodies.forEach(body => {
-    lines.push(`- Certifier ${body.id}: ${body.name} (${body.country}). Recognized aliases: ${body.aliases.slice(0, 3).join(', ')}.`);
+  retrieval.certifying_bodies.forEach((body) => {
+    lines.push(
+      `- Certifier ${body.id}: ${body.name} (${body.country}). Recognized aliases: ${body.aliases.slice(0, 3).join(", ")}.`,
+    );
   });
   lines.push(RAG_GUARDRAIL);
-  return lines.join('\n');
+  return lines.join("\n");
 };
 
 export const extractIngredientFocusedText = (text: string) => {
-  const normalized = (text || '').replace(/\r/g, '');
-  if (!normalized.trim()) return '';
+  const normalized = (text || "").replace(/\r/g, "");
+  if (!normalized.trim()) return "";
 
-  const markers = [/\bingredients?\b/i, /\bingredient list\b/i, /\bcontains\b/i];
-  const startMatch = markers.map(pattern => normalized.match(pattern)).find(Boolean);
-  let candidate = startMatch?.index !== undefined ? normalized.slice(startMatch.index) : normalized;
+  const markers = [
+    /\bingredients?\b/i,
+    /\bingredient list\b/i,
+    /\bcontains\b/i,
+  ];
+  const startMatch = markers
+    .map((pattern) => normalized.match(pattern))
+    .find(Boolean);
+  let candidate =
+    startMatch?.index !== undefined
+      ? normalized.slice(startMatch.index)
+      : normalized;
 
   const stopMarkers = [
     /\bnutrition(?:al)? facts\b/i,
@@ -308,34 +386,62 @@ export const extractIngredientFocusedText = (text: string) => {
     /\bbarcode\b/i,
   ];
   const endIndexes = stopMarkers
-    .map(pattern => candidate.search(pattern))
-    .filter(index => index >= 0);
-  if (endIndexes.length > 0) candidate = candidate.slice(0, Math.min(...endIndexes));
+    .map((pattern) => candidate.search(pattern))
+    .filter((index) => index >= 0);
+  if (endIndexes.length > 0)
+    candidate = candidate.slice(0, Math.min(...endIndexes));
 
-  return candidate.replace(/\s+/g, ' ').trim().replace(/^[ .:-]+|[ .:-]+$/g, '');
+  return candidate
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[ .:-]+|[ .:-]+$/g, "");
 };
 
 const isMissingIngredients = (text: string) => {
-  const normalized = (text || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-  return !normalized || new Set([
-    'no ingredients',
-    'no ingredients listed',
-    'ingredients unavailable',
-    'ingredients not available',
-    'ingredients not listed',
-    'unknown',
-    'unknown ingredients',
-    'not available',
-    'na',
-  ]).has(normalized);
+  const normalized = (text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  return (
+    !normalized ||
+    new Set([
+      "no ingredients",
+      "no ingredients listed",
+      "ingredients unavailable",
+      "ingredients not available",
+      "ingredients not listed",
+      "unknown",
+      "unknown ingredients",
+      "not available",
+      "na",
+    ]).has(normalized)
+  );
 };
 
-const normalizeApiStatus = (value: unknown): RuleStatus => {
-  const text = String(value || '').toLowerCase();
-  if (text.includes('haram') || text.includes('forbidden') || text.includes('non-halal') || text.includes('non halal')) return 'HARAM';
-  if (text.includes('doubt') || text.includes('mashbooh') || text.includes('mushbooh') || text.includes('questionable')) return 'DOUBTFUL';
-  if (text.includes('halal') || text.includes('permissible')) return 'HALAL';
-  return 'UNKNOWN';
+export const normalizeApiStatus = (value: unknown): RuleStatus => {
+  const text = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (
+    [
+      "haram",
+      "forbidden",
+      "non-halal",
+      "non halal",
+      "not halal",
+      "non-compliant",
+    ].includes(text)
+  )
+    return "HARAM";
+  if (
+    ["doubtful", "mashbooh", "mushbooh", "questionable", "suspect"].includes(
+      text,
+    )
+  )
+    return "DOUBTFUL";
+  if (["halal", "halal compliant", "permissible"].includes(text))
+    return "HALAL";
+  return "UNKNOWN";
 };
 
 const findFirst = (data: any, keys: string[]): any => {
@@ -347,7 +453,7 @@ const findFirst = (data: any, keys: string[]): any => {
     }
     return undefined;
   }
-  if (typeof data === 'object') {
+  if (typeof data === "object") {
     for (const key of keys) {
       if (data[key] !== undefined) return data[key];
     }
@@ -359,32 +465,53 @@ const findFirst = (data: any, keys: string[]): any => {
   return undefined;
 };
 
-export const isRapidApiConfigured = () => Boolean(process.env.RAPIDAPI_KEY?.trim());
+export const isRapidApiConfigured = () =>
+  Boolean(process.env.RAPIDAPI_KEY?.trim());
 
 const buildRubricEvidence = () => {
   const kb = loadKnowledgeBase();
   return {
-    contract_version: 'ml-kbd-re-si-v1',
+    contract_version: "ml-kbd-re-si-v1",
     mlImplementation: {
-      primary_classifier: 'RapidAPI Halal Food Checker',
-      fallback_model: 'TF-IDF weighted Multinomial Naive Bayes',
+      primary_classifier: "RapidAPI Halal Food Checker",
+      fallback_model: "TF-IDF weighted Multinomial Naive Bayes",
       live_api_optional: true,
-      normalized_statuses: ['HALAL', 'HARAM', 'DOUBTFUL', 'UNKNOWN', 'UNAVAILABLE'],
+      normalized_statuses: [
+        "HALAL",
+        "HARAM",
+        "DOUBTFUL",
+        "UNKNOWN",
+        "UNAVAILABLE",
+      ],
     },
     knowledgeBaseDesign: {
-      source_of_truth: 'backend/data/halal_rules.json',
+      source_of_truth: "backend/data/halal_rules.json",
       rule_count: kb.rules.length,
-      certifying_bodies: kb.certifying_bodies.map(body => body.name),
-      required_rule_fields: ['id', 'category', 'status', 'e_numbers', 'keywords', 'reason', 'source'],
+      certifying_bodies: kb.certifying_bodies.map((body) => body.name),
+      required_rule_fields: [
+        "id",
+        "category",
+        "status",
+        "e_numbers",
+        "keywords",
+        "reason",
+        "source",
+      ],
     },
     reasoningEngine: {
-      priority: ['HARAM', 'HALAL'],
-      exposes: ['facts', 'matchedRules', 'logicPath', 'conflictResolution', 'certificationCheck'],
+      priority: ["HARAM", "DOUBTFUL", "UNKNOWN", "HALAL"],
+      exposes: [
+        "facts",
+        "matchedRules",
+        "logicPath",
+        "conflictResolution",
+        "certificationCheck",
+      ],
     },
     systemIntegration: {
-      main_route: '/api/analyze',
-      input_modes: ['manual_text', 'barcode_openfoodfacts', 'ocr_text'],
-      deployment_targets: ['Flask local API', 'Vercel TypeScript Functions'],
+      main_route: "/api/analyze",
+      input_modes: ["manual_text", "barcode_openfoodfacts", "ocr_text"],
+      deployment_targets: ["Flask local API", "Vercel TypeScript Functions"],
     },
   };
 };
@@ -392,68 +519,92 @@ const buildRubricEvidence = () => {
 export const classifyIngredient = async (ingredient: string) => {
   const cacheKey = ingredient.trim().toLowerCase();
   if (rapidApiCache.has(cacheKey)) {
-    return { ...rapidApiCache.get(cacheKey), source: 'rapidapi-memory-cache' };
+    return { ...rapidApiCache.get(cacheKey), source: "rapidapi-memory-cache" };
   }
 
   const apiKey = process.env.RAPIDAPI_KEY?.trim();
   if (!apiKey) {
     return {
-      status: 'UNAVAILABLE' as RuleStatus,
+      status: "UNAVAILABLE" as RuleStatus,
       confidence: 0,
-      reason: 'RAPIDAPI_KEY is not configured; skipping live Halal Food Checker lookup.',
-      source: 'rapidapi-unavailable',
+      reason:
+        "RAPIDAPI_KEY is not configured; skipping live Halal Food Checker lookup.",
+      source: "rapidapi-unavailable",
     };
   }
 
-  const host = process.env.RAPIDAPI_HOST || 'halal-food-checker.p.rapidapi.com';
+  const host = process.env.RAPIDAPI_HOST || "halal-food-checker.p.rapidapi.com";
   const url = process.env.RAPIDAPI_URL || `https://${host}/check`;
   const headers = {
-    'X-RapidAPI-Key': apiKey,
-    'X-RapidAPI-Host': host,
-    'Content-Type': 'application/json',
+    "X-RapidAPI-Key": apiKey,
+    "X-RapidAPI-Host": host,
+    "Content-Type": "application/json",
   };
 
   try {
     let response = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers,
-      body: JSON.stringify({ ingredient, ingredients: ingredient, text: ingredient }),
+      body: JSON.stringify({
+        ingredient,
+        ingredients: ingredient,
+        text: ingredient,
+      }),
+      signal: AbortSignal.timeout(8000),
     });
 
     if (response.status === 404 || response.status === 405) {
-      response = await fetch(`${url}?ingredient=${encodeURIComponent(ingredient)}&q=${encodeURIComponent(ingredient)}`, {
-        method: 'GET',
-        headers: {
-          'X-RapidAPI-Key': apiKey,
-          'X-RapidAPI-Host': host,
+      response = await fetch(
+        `${url}?ingredient=${encodeURIComponent(ingredient)}&q=${encodeURIComponent(ingredient)}`,
+        {
+          method: "GET",
+          signal: AbortSignal.timeout(8000),
+          headers: {
+            "X-RapidAPI-Key": apiKey,
+            "X-RapidAPI-Host": host,
+          },
         },
-      });
+      );
     }
 
     if (!response.ok) throw new Error(`RapidAPI returned ${response.status}`);
 
     const raw = await response.json();
-    const status = normalizeApiStatus(findFirst(raw, ['status', 'halal_status', 'halalStatus', 'classification', 'result', 'verdict']));
-    let confidence = Number(findFirst(raw, ['confidence', 'score', 'probability']));
+    const status = normalizeApiStatus(
+      findFirst(raw, [
+        "status",
+        "halal_status",
+        "halalStatus",
+        "classification",
+        "result",
+        "verdict",
+      ]),
+    );
+    let confidence = Number(
+      findFirst(raw, ["confidence", "score", "probability"]),
+    );
     if (!Number.isFinite(confidence)) confidence = 70;
     if (confidence <= 1) confidence *= 100;
-    const reason = String(findFirst(raw, ['reason', 'description', 'message', 'explanation']) || 'RapidAPI Halal Food Checker returned a classification.');
+    const reason = String(
+      findFirst(raw, ["reason", "description", "message", "explanation"]) ||
+        "RapidAPI Halal Food Checker returned a classification.",
+    );
 
     const parsed = {
       status,
       confidence: Math.max(0, Math.min(confidence, 100)),
       reason,
       raw,
-      source: 'rapidapi',
+      source: "rapidapi",
     };
     rapidApiCache.set(cacheKey, parsed);
     return parsed;
   } catch (error) {
     return {
-      status: 'UNAVAILABLE' as RuleStatus,
+      status: "UNAVAILABLE" as RuleStatus,
       confidence: 0,
       reason: `RapidAPI lookup failed: ${error instanceof Error ? error.message : String(error)}`,
-      source: 'rapidapi-error',
+      source: "rapidapi-error",
     };
   }
 };
@@ -461,17 +612,20 @@ export const classifyIngredient = async (ingredient: string) => {
 export const fetchProductByBarcode = async (barcode: string) => {
   if (!barcode.trim()) return null;
   try {
-    const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(barcode)}.json`);
+    const response = await fetch(
+      `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(barcode)}.json`,
+      { signal: AbortSignal.timeout(8000) },
+    );
     if (!response.ok) return null;
     const data = await response.json();
     if (data.status !== 1 || !data.product) return null;
     return {
       barcode,
-      name: data.product.product_name || 'Unknown Product',
-      brand: data.product.brands || 'Unknown Brand',
+      name: data.product.product_name || "Unknown Product",
+      brand: data.product.brands || "Unknown Brand",
       image: data.product.image_url || null,
-      ingredients: data.product.ingredients_text || '',
-      labels: data.product.labels || '',
+      ingredients: data.product.ingredients_text || "",
+      labels: data.product.labels || "",
     };
   } catch {
     return null;
@@ -479,17 +633,18 @@ export const fetchProductByBarcode = async (barcode: string) => {
 };
 
 export const analyzePayload = async (payload: any) => {
-  const barcode = String(payload.barcode || '').trim();
+  const barcode = String(payload.barcode || "").trim();
   const certifyingBody = payload.certifyingBody || payload.certifying_body;
   const product = {
     barcode,
-    name: payload.productName || payload.name || 'Manual Scan',
-    brand: payload.brand || 'User Input',
+    name: payload.productName || payload.name || "Manual Scan",
+    brand: payload.brand || "User Input",
     image: payload.image || null,
-    labels: payload.labels || '',
+    labels: payload.labels || "",
   };
 
-  let rawIngredientsText = payload.ocrText || payload.ingredients || payload.text || '';
+  let rawIngredientsText =
+    payload.ocrText || payload.ingredients || payload.text || "";
   let ingredientsText = extractIngredientFocusedText(rawIngredientsText);
   if (barcode && !ingredientsText) {
     const offProduct = await fetchProductByBarcode(barcode);
@@ -502,7 +657,7 @@ export const analyzePayload = async (payload: any) => {
 
   const certification = verifyCertifyingBody(certifyingBody);
   const logicPath = [
-    'Input collection complete.',
+    "Input collection complete.",
     `Certifying body status: ${certification.status}.`,
   ];
   const factTrace: any[] = [];
@@ -510,90 +665,120 @@ export const analyzePayload = async (payload: any) => {
 
   let ingredientResults: any[];
   if (isMissingIngredients(ingredientsText)) {
-    ingredientResults = [{
-      ingredient: 'insufficient ingredient information',
-      status: 'UNKNOWN',
-      api_status: 'UNAVAILABLE',
-      kb_status: 'UNKNOWN',
-      confidence: 55,
-      reason: 'No usable ingredient list was provided.',
-      rule_ids: ['INSUFFICIENT_DATA'],
-      matched_rules: [],
-      source: 'input-quality-guard',
-    }];
+    ingredientResults = [
+      {
+        ingredient: "insufficient ingredient information",
+        status: "UNKNOWN",
+        api_status: "UNAVAILABLE",
+        kb_status: "UNKNOWN",
+        confidence: 55,
+        reason: "No usable ingredient list was provided.",
+        rule_ids: ["INSUFFICIENT_DATA"],
+        matched_rules: [],
+        source: "input-quality-guard",
+      },
+    ];
     factTrace.push({
-      ingredient: 'insufficient ingredient information',
-      kb_status: 'UNKNOWN',
-      api_status: 'UNAVAILABLE',
-      final_status: 'UNKNOWN',
-      rule_ids: ['INSUFFICIENT_DATA'],
+      ingredient: "insufficient ingredient information",
+      kb_status: "UNKNOWN",
+      api_status: "UNAVAILABLE",
+      final_status: "UNKNOWN",
+      rule_ids: ["INSUFFICIENT_DATA"],
     });
-    logicPath.push('No usable ingredient facts were available.');
+    logicPath.push("No usable ingredient facts were available.");
   } else {
     const ingredients = splitIngredients(ingredientsText);
     logicPath.push(`Extracted ${ingredients.length} ingredient facts.`);
 
-    ingredientResults = await Promise.all(ingredients.map(async ingredient => {
-      const kbResult = evaluateIngredientAgainstRules(ingredient);
-      const apiResult = await classifyIngredient(ingredient);
-      const apiStatus = apiResult.status === 'MASHBOOH' ? 'DOUBTFUL' : apiResult.status;
-      const effectiveApiStatus = apiStatus === 'UNAVAILABLE' ? 'INFO' : apiStatus;
-      let finalStatus = statusPriority[kbResult.status] >= statusPriority[effectiveApiStatus] ? kbResult.status : effectiveApiStatus;
-      if (finalStatus === 'INFO' || finalStatus === 'UNAVAILABLE') finalStatus = 'UNKNOWN';
+    // Limit live work for long labels; all entries still receive local rule evidence.
+    const liveResults = new Map(await Promise.all([...new Set(ingredients)].slice(0, 8).map(async ingredient => [ingredient, await classifyIngredient(ingredient)] as const)));
+    ingredientResults = await Promise.all(
+      ingredients.map(async (ingredient) => {
+        const kbResult = evaluateIngredientAgainstRules(ingredient);
+        if (
+          kbResult.status === "HALAL" &&
+          !hasFullRuleCoverage(ingredient, kbResult.matched_rules)
+        ) {
+          kbResult.status = "UNKNOWN";
+          kbResult.reason =
+            "Only part of this ingredient matched a rule. Verify the full ingredient and its source.";
+        }
+        const apiResult = liveResults.get(ingredient) || {status: "UNAVAILABLE" as const, confidence: 0, source: "request-budget", reason: "Checked with local rules; live lookup budget reached."};
+        const apiStatus =
+          apiResult.status === "MASHBOOH" ? "DOUBTFUL" : apiResult.status;
+        const effectiveApiStatus =
+          apiStatus === "UNAVAILABLE" ? "INFO" : apiStatus;
+        let finalStatus =
+          statusPriority[kbResult.status] >= statusPriority[effectiveApiStatus]
+            ? kbResult.status
+            : effectiveApiStatus;
+        if (finalStatus === "INFO" || finalStatus === "UNAVAILABLE")
+          finalStatus = "UNKNOWN";
 
-      const ruleIds = kbResult.matched_rules.map((rule: any) => rule.id);
-      factTrace.push({
-        ingredient,
-        kb_status: kbResult.status,
-        api_status: apiStatus,
-        final_status: finalStatus,
-        rule_ids: ruleIds,
-      });
-      matchedRuleTrace.push(...kbResult.matched_rules);
-      if (ruleIds.length > 0) logicPath.push(`Rule match for '${ingredient}': ${ruleIds.join(', ')} -> ${kbResult.status}.`);
-      if (apiStatus !== 'UNAVAILABLE' && apiStatus !== 'INFO') logicPath.push(`RapidAPI classification for '${ingredient}': ${apiStatus}.`);
+        const ruleIds = kbResult.matched_rules.map((rule: any) => rule.id);
+        factTrace.push({
+          ingredient,
+          kb_status: kbResult.status,
+          api_status: apiStatus,
+          final_status: finalStatus,
+          rule_ids: ruleIds,
+        });
+        matchedRuleTrace.push(...kbResult.matched_rules);
+        if (ruleIds.length > 0)
+          logicPath.push(
+            `Rule match for '${ingredient}': ${ruleIds.join(", ")} -> ${kbResult.status}.`,
+          );
+        if (apiStatus !== "UNAVAILABLE" && apiStatus !== "INFO")
+          logicPath.push(
+            `RapidAPI classification for '${ingredient}': ${apiStatus}.`,
+          );
 
-      return {
-        ingredient,
-        status: finalStatus,
-        api_status: apiStatus,
-        kb_status: kbResult.status,
-        confidence: apiResult.confidence || (kbResult.matched_rules.length ? 90 : 50),
-        reason: kbResult.matched_rules.length ? kbResult.reason : apiResult.reason || kbResult.reason,
-        rule_ids: ruleIds,
-        matched_rules: kbResult.matched_rules,
-        source: apiResult.source || 'knowledge-base',
-      };
-    }));
+        return {
+          ingredient,
+          status: finalStatus,
+          api_status: apiStatus,
+          kb_status: kbResult.status,
+          confidence:
+            apiResult.confidence || (kbResult.matched_rules.length ? 90 : 50),
+          reason:
+            statusPriority[apiStatus] > statusPriority[kbResult.status]
+              ? apiResult.reason || kbResult.reason
+              : kbResult.reason,
+          rule_ids: ruleIds,
+          matched_rules: kbResult.matched_rules,
+          source:
+            apiStatus === "UNAVAILABLE"
+              ? "knowledge-base"
+              : apiResult.source || "knowledge-base",
+        };
+      }),
+    );
   }
 
-  const haramItems = ingredientResults.filter(row => row.status === 'HARAM');
-  const warningItems = ingredientResults.filter(row => row.status === 'DOUBTFUL' || row.status === 'UNKNOWN');
+  const haramItems = ingredientResults.filter((row) => row.status === "HARAM");
+  const warningItems = ingredientResults.filter(
+    (row) => row.status === "DOUBTFUL" || row.status === "UNKNOWN",
+  );
 
-  let finalVerdict: 'NON-COMPLIANT' | 'HALAL COMPLIANT';
-  let confidence: number;
-  let reason: string;
-  let recommendation: string;
+  const finalVerdict = decideVerdict(ingredientsText, ingredientResults);
+  const { reason, recommendation } = verdictCopy[finalVerdict];
+  const confidence =
+    finalVerdict === "NON-COMPLIANT"
+      ? 98
+      : finalVerdict === "HALAL COMPLIANT"
+        ? 84
+        : 0;
+  logicPath.push(
+    `Evidence policy v2: ${finalVerdict}. Certifier recognition is not product verification.`,
+  );
 
-  if (haramItems.length > 0) {
-    finalVerdict = 'NON-COMPLIANT';
-    confidence = 98;
-    reason = 'One or more ingredients were classified as haram by the knowledge base or Halal Food Checker API.';
-    recommendation = 'Avoid this product unless a qualified halal authority provides a corrected ingredient source.';
-    logicPath.push('Verdict rule: any HARAM ingredient produces NON-COMPLIANT.');
-  } else {
-    finalVerdict = 'HALAL COMPLIANT';
-    confidence = warningItems.length > 0 || !certification.recognized ? 84 : 94;
-    reason = warningItems.length > 0
-      ? 'No haram ingredient was detected. Some ingredients may still need source verification, but the user-facing result is halal unless a haram trigger is found.'
-      : 'No haram ingredient was detected in the maintained ingredient rules or Halal Food Checker API.';
-    recommendation = certification.recognized
-      ? 'Product is treated as halal by this scan because no haram ingredient was found.'
-      : 'Product is treated as halal by ingredient screening because no haram ingredient was found. Check certification separately if needed.';
-    logicPath.push('Verdict rule: no HARAM ingredient produces HALAL COMPLIANT.');
-  }
-
-  const triggeredRules = Array.from(new Set(ingredientResults.flatMap(row => row.matched_rules.map((rule: any) => rule.id)))).sort();
+  const triggeredRules = Array.from(
+    new Set(
+      ingredientResults.flatMap((row) =>
+        row.matched_rules.map((rule: any) => rule.id),
+      ),
+    ),
+  ).sort();
   const rubricEvidence = buildRubricEvidence();
   const scan = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -602,7 +787,9 @@ export const analyzePayload = async (payload: any) => {
     confidence,
     reason,
     recommendation,
-    flagged_ingredients: haramItems.map(row => row.ingredient),
+    flagged_ingredients: ingredientResults
+      .filter((row) => row.status !== "HALAL")
+      .map((row) => row.ingredient),
     ingredients: ingredientsText || rawIngredientsText,
     product,
     certifying_body: certification,
@@ -612,111 +799,134 @@ export const analyzePayload = async (payload: any) => {
     architectureDetails: {
       rubricEvidence,
       krrAnalysis: {
-        status: haramItems.length ? 'HARAM' : 'HALAL',
+        status:
+          finalVerdict === "NON-COMPLIANT"
+            ? "HARAM"
+            : finalVerdict === "REQUIRES REVIEW"
+              ? "UNKNOWN"
+              : "HALAL",
         confidence: confidence / 100,
-        flags: haramItems.map(row => ({
-            ingredient: row.ingredient,
-            type: 'HARAM',
-            ruleId: row.rule_ids.join(',') || 'UNRESOLVED',
-          })),
+        flags: haramItems.map((row) => ({
+          ingredient: row.ingredient,
+          type: "HARAM",
+          ruleId: row.rule_ids.join(",") || "UNRESOLVED",
+        })),
         logicPath,
         facts: factTrace,
         matchedRules: matchedRuleTrace,
         conflictResolution: {
-          priority: ['HARAM', 'HALAL'],
+          priority: ["HARAM", "DOUBTFUL", "UNKNOWN", "HALAL"],
           selectedVerdict: finalVerdict,
           reason,
         },
         certificationCheck: certification,
         evaluationNotes: [
-          'RapidAPI Halal Food Checker is the primary ingredient classifier when RAPIDAPI_KEY is configured.',
-          'Knowledge-base rules are always evaluated and can veto API output.',
-          'No-credential runs remain deterministic by treating live API status as unavailable.',
+          "RapidAPI Halal Food Checker is the primary ingredient classifier when RAPIDAPI_KEY is configured.",
+          "Knowledge-base rules are always evaluated and can veto API output.",
+          "No-credential runs remain deterministic by treating live API status as unavailable.",
         ],
       },
       mlAnalysis: {
-        provider: 'RapidAPI Halal Food Checker',
-        verdict: haramItems.length ? 'HARAM' : 'HALAL',
+        provider: "RapidAPI Halal Food Checker",
+        verdict:
+          finalVerdict === "NON-COMPLIANT"
+            ? "HARAM"
+            : finalVerdict === "REQUIRES REVIEW"
+              ? "UNKNOWN"
+              : "HALAL",
         ingredient_results: ingredientResults,
       },
       integrationLogic: logicPath,
     },
   };
 
-  serverlessHistory.unshift(scan);
-  if (serverlessHistory.length > 100) serverlessHistory.length = 100;
   return scan;
 };
 
-export const listServerlessHistory = () => serverlessHistory;
+export const listServerlessHistory = (): never[] => [];
 
 export const isGoogleVisionConfigured = () =>
   Boolean(
     process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON?.trim() ||
     process.env.GOOGLE_SERVICE_ACCOUNT_JSON?.trim() ||
     process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64?.trim() ||
-    process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim()
+    process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim(),
   );
 
 const base64Url = (value: Buffer | string) =>
-  Buffer.from(value).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  Buffer.from(value)
+    .toString("base64")
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
 
 const getGoogleCredentials = () => {
-  const json = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  const json =
+    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON ||
+    process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (json?.trim()) return JSON.parse(json);
 
   const base64 = process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64;
-  if (base64?.trim()) return JSON.parse(Buffer.from(base64, 'base64').toString('utf8'));
+  if (base64?.trim())
+    return JSON.parse(Buffer.from(base64, "base64").toString("utf8"));
 
   const filePath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  if (filePath?.trim()) return JSON.parse(readFileSync(filePath, 'utf8'));
+  if (filePath?.trim()) return JSON.parse(readFileSync(filePath, "utf8"));
 
   return null;
 };
 
 const getGoogleAccessToken = async () => {
-  if (googleAccessToken && googleAccessToken.expiresAt > Date.now() + 60_000) return googleAccessToken.token;
+  if (googleAccessToken && googleAccessToken.expiresAt > Date.now() + 60_000)
+    return googleAccessToken.token;
 
   const credentials = getGoogleCredentials();
   if (!credentials?.client_email || !credentials?.private_key) {
-    throw new Error('Google Vision service account credentials are not configured.');
+    throw new Error(
+      "Google Vision service account credentials are not configured.",
+    );
   }
 
   const now = Math.floor(Date.now() / 1000);
-  const header = base64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const payload = base64Url(JSON.stringify({
-    iss: credentials.client_email,
-    scope: 'https://www.googleapis.com/auth/cloud-vision',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now,
-  }));
+  const header = base64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64Url(
+    JSON.stringify({
+      iss: credentials.client_email,
+      scope: "https://www.googleapis.com/auth/cloud-vision",
+      aud: "https://oauth2.googleapis.com/token",
+      exp: now + 3600,
+      iat: now,
+    }),
+  );
   const unsignedJwt = `${header}.${payload}`;
-  const signer = createSign('RSA-SHA256');
+  const signer = createSign("RSA-SHA256");
   signer.update(unsignedJwt);
   const signature = signer.sign(credentials.private_key);
   const assertion = `${unsignedJwt}.${base64Url(signature)}`;
 
-  const response = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
       assertion,
     }),
   });
 
-  if (!response.ok) throw new Error(`Google token exchange failed with ${response.status}`);
+  if (!response.ok)
+    throw new Error(`Google token exchange failed with ${response.status}`);
   const data = await response.json();
   googleAccessToken = {
     token: data.access_token,
-    expiresAt: Date.now() + Math.max(0, Number(data.expires_in || 3600) - 60) * 1000,
+    expiresAt:
+      Date.now() + Math.max(0, Number(data.expires_in || 3600) - 60) * 1000,
   };
   return googleAccessToken.token;
 };
 
 const stripDataUrl = (value: string) => {
-  if (value.startsWith('data:') && value.includes(',')) return value.split(',', 2)[1];
+  if (value.startsWith("data:") && value.includes(","))
+    return value.split(",", 2)[1];
   return value;
 };
 
@@ -724,91 +934,114 @@ const averageConfidence = (annotation: any) => {
   const values: number[] = [];
   (annotation?.pages || []).forEach((page: any) => {
     (page.blocks || []).forEach((block: any) => {
-      if (typeof block.confidence === 'number') values.push(block.confidence);
+      if (typeof block.confidence === "number") values.push(block.confidence);
       (block.paragraphs || []).forEach((paragraph: any) => {
-        if (typeof paragraph.confidence === 'number') values.push(paragraph.confidence);
+        if (typeof paragraph.confidence === "number")
+          values.push(paragraph.confidence);
       });
     });
   });
   if (!values.length) return 0;
-  return Math.round((values.reduce((sum, item) => sum + item, 0) / values.length) * 10000) / 100;
+  return (
+    Math.round(
+      (values.reduce((sum, item) => sum + item, 0) / values.length) * 10000,
+    ) / 100
+  );
 };
 
 export const runOcrPayload = async (payload: any) => {
   const fileBase64 = payload.fileBase64 || payload.imageBase64 || payload.data;
-  if (!fileBase64) throw new Error('fileBase64 or imageBase64 is required.');
+  if (!fileBase64) throw new Error("fileBase64 or imageBase64 is required.");
 
-  const mimeType = payload.mimeType || 'image/jpeg';
-  const fallbackText = payload.fallbackText || '';
-  const filename = payload.filename || 'upload';
+  const mimeType = payload.mimeType || "image/jpeg";
+  const fallbackText = payload.fallbackText || "";
+  const filename = payload.filename || "upload";
 
   if (!isGoogleVisionConfigured()) {
     return {
       text: fallbackText,
       confidence: 0,
       pages: [],
-      engine: 'google-vision-unavailable',
+      engine: "google-vision-unavailable",
       filename,
-      warning: 'Google Vision is not configured. Use GOOGLE_APPLICATION_CREDENTIALS_JSON or GOOGLE_APPLICATION_CREDENTIALS_BASE64 on Vercel.',
+      warning:
+        "Google Vision is not configured. Use GOOGLE_APPLICATION_CREDENTIALS_JSON or GOOGLE_APPLICATION_CREDENTIALS_BASE64 on Vercel.",
     };
   }
 
   const token = await getGoogleAccessToken();
   const content = stripDataUrl(fileBase64);
-  const isPdf = mimeType === 'application/pdf';
+  const isPdf = mimeType === "application/pdf";
   const endpoint = isPdf
-    ? 'https://vision.googleapis.com/v1/files:annotate'
-    : 'https://vision.googleapis.com/v1/images:annotate';
+    ? "https://vision.googleapis.com/v1/files:annotate"
+    : "https://vision.googleapis.com/v1/images:annotate";
   const body = isPdf
     ? {
-        requests: [{
-          inputConfig: { content, mimeType },
-          features: [{ type: 'DOCUMENT_TEXT_DETECTION' }],
-          pages: [1, 2, 3, 4, 5],
-        }],
+        requests: [
+          {
+            inputConfig: { content, mimeType },
+            features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
+            pages: [1, 2, 3, 4, 5],
+          },
+        ],
       }
     : {
-        requests: [{
-          image: { content },
-          features: [{ type: 'DOCUMENT_TEXT_DETECTION' }],
-        }],
+        requests: [
+          {
+            image: { content },
+            features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
+          },
+        ],
       };
 
   const response = await fetch(endpoint, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
   });
 
-  if (!response.ok) throw new Error(`Google Vision returned ${response.status}`);
+  if (!response.ok)
+    throw new Error(`Google Vision returned ${response.status}`);
   const data = await response.json();
 
   if (isPdf) {
     const pageResponses = data.responses?.[0]?.responses || [];
     const pages = pageResponses.map((item: any, index: number) => ({
       page: index + 1,
-      text: item.fullTextAnnotation?.text || '',
+      text: item.fullTextAnnotation?.text || "",
       error: item.error?.message,
     }));
-    const confidences = pageResponses.map((item: any) => averageConfidence(item.fullTextAnnotation)).filter(Boolean);
+    const confidences = pageResponses
+      .map((item: any) => averageConfidence(item.fullTextAnnotation))
+      .filter(Boolean);
     return {
-      text: pages.map((page: any) => page.text).filter(Boolean).join('\n').trim(),
-      confidence: confidences.length ? Math.round((confidences.reduce((sum: number, item: number) => sum + item, 0) / confidences.length) * 100) / 100 : 0,
+      text: pages
+        .map((page: any) => page.text)
+        .filter(Boolean)
+        .join("\n")
+        .trim(),
+      confidence: confidences.length
+        ? Math.round(
+            (confidences.reduce((sum: number, item: number) => sum + item, 0) /
+              confidences.length) *
+              100,
+          ) / 100
+        : 0,
       pages,
-      engine: 'google-vision-pdf-document-text-detection',
+      engine: "google-vision-pdf-document-text-detection",
       filename,
     };
   }
 
   const annotation = data.responses?.[0]?.fullTextAnnotation;
   return {
-    text: annotation?.text || '',
+    text: annotation?.text || "",
     confidence: averageConfidence(annotation),
-    pages: [{ page: 1, text: annotation?.text || '' }],
-    engine: 'google-vision-document-text-detection',
+    pages: [{ page: 1, text: annotation?.text || "" }],
+    engine: "google-vision-document-text-detection",
     filename,
   };
 };

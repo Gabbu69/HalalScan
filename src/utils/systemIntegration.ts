@@ -1,13 +1,23 @@
-import { hasUsableIngredientText, runRuleBasedInference, InferenceResult } from './reasoningEngine';
-import { analyzeProductWithGemini, analyzeImageWithGemini } from './geminiApi';
-import { scoreIngredients } from './mlModel';
-
-export type ProposalVerdict = 'HALAL COMPLIANT' | 'NON-COMPLIANT';
-export type LegacyVerdict = 'HALAL' | 'HARAM' | 'MASHBOOH';
-
+import {
+  CANONICAL_CERTIFYING_BODIES,
+  evaluateIngredientAgainstCanonicalRules,
+  splitIngredients,
+} from "./canonicalKnowledgeBase";
+import {
+  decideVerdict,
+  hasFullRuleCoverage,
+  hasUsableIngredients,
+  normalizeVerdict,
+  verdictCopy,
+  type IngredientEvidence,
+  type ProductVerdict,
+} from "../../shared/verdict";
+import { fetchJson } from "./requests";
+export type ProposalVerdict = ProductVerdict;
+export type LegacyVerdict = "HALAL" | "HARAM" | "MASHBOOH";
 export type IntegratedAnalysisResult = {
   id?: string;
-  finalVerdict: ProposalVerdict | LegacyVerdict;
+  finalVerdict: ProductVerdict;
   confidence: number;
   reason: string;
   flagged_ingredients: string[];
@@ -18,269 +28,194 @@ export type IntegratedAnalysisResult = {
   barcode?: string;
   ingredients?: string;
   certification?: any;
-  ingredient_results?: any[];
+  ingredient_results?: IngredientEvidence[];
   triggered_rules?: string[];
   rubric_evidence?: any;
+  evidenceMode: "local-rules" | "server-rules" | "online-services";
   architectureDetails: {
-    krrAnalysis: InferenceResult | any;
+    krrAnalysis: any;
     mlAnalysis: any;
     integrationLogic: string[];
   };
 };
-
-type BackendAnalyzePayload = {
-  productName?: string;
-  brand?: string;
-  image?: string | null;
-  barcode?: string;
-  ingredients?: string;
-  ocrText?: string;
-  certifyingBody?: string;
-};
-
-const buildConsensus = (mlResult: any, krrResult: InferenceResult, integrationLogs: string[]): IntegratedAnalysisResult => {
-  let finalVerdict = mlResult.verdict;
-  let finalReason = mlResult.reason;
-  let finalConfidence = mlResult.confidence;
-
-  if (krrResult.status === 'HARAM' && mlResult.verdict !== 'HARAM') {
-    integrationLogs.push('CRITICAL: KR&R explicitly detected HARAM violation overriding ML assessment.');
-    finalVerdict = 'HARAM';
-    finalReason = `Rule-based violation found (${krrResult.flags.map(f => f.ingredient).join(', ')}). ` + finalReason;
-    finalConfidence = 100;
-  } else {
-    if (finalVerdict === 'MASHBOOH') {
-      finalVerdict = 'HALAL';
-      finalReason = 'No haram ingredient was detected. ' + finalReason;
-    }
-    integrationLogs.push('System reached a binary user result: HARAM when a haram trigger exists, otherwise HALAL.');
-  }
-
-  const finalFlags = finalVerdict === 'HARAM'
-    ? Array.from(new Set([
-        ...(mlResult.flagged_ingredients || []),
-        ...krrResult.flags.filter(f => f.type === 'HARAM').map(f => f.ingredient)
-      ]))
+export function runLocalAnalysis(
+  name: string,
+  ingredients: string,
+  certifyingBody = "",
+): IntegratedAnalysisResult {
+  const rows: IngredientEvidence[] = hasUsableIngredients(ingredients)
+    ? splitIngredients(ingredients).map((ingredient) => {
+        const result = evaluateIngredientAgainstCanonicalRules(ingredient);
+        if (
+          result.status === "HALAL" &&
+          !hasFullRuleCoverage(ingredient, result.matched_rules)
+        ) {
+          result.status = "UNKNOWN";
+          result.reason =
+            "Only part of this ingredient matched a rule. Verify the full ingredient and its source.";
+        }
+        return {
+          ...result,
+          kb_status: result.status,
+          api_status: "UNAVAILABLE",
+          source: "knowledge-base",
+          rule_ids: result.matched_rules.map((rule) => rule.id),
+        };
+      })
     : [];
-
+  const finalVerdict = decideVerdict(ingredients, rows);
+  const recognized = CANONICAL_CERTIFYING_BODIES.some((body) =>
+    [body.name, ...body.aliases].some(
+      (alias) => alias.toLowerCase() === certifyingBody.trim().toLowerCase(),
+    ),
+  );
   return {
     finalVerdict,
-    confidence: finalConfidence,
-    reason: finalReason,
-    flagged_ingredients: finalFlags,
-    recommendation: mlResult.recommendation || '',
-    name: mlResult.name || '',
-    ingredients: mlResult.ingredients || '',
+    ...verdictCopy[finalVerdict],
+    confidence: 0,
+    name,
+    ingredients,
+    flagged_ingredients: rows
+      .filter((row) => row.status !== "HALAL")
+      .map((row) => row.ingredient),
+    ingredient_results: rows,
+    triggered_rules: [...new Set(rows.flatMap((row) => row.rule_ids || []))],
+    certification: {
+      input: certifyingBody,
+      recognized,
+      status: recognized ? "BODY RECOGNIZED" : "NOT VERIFIED",
+      reason:
+        "A body-name reference does not verify this product or its certificate.",
+    },
+    evidenceMode: "local-rules",
     architectureDetails: {
-      krrAnalysis: krrResult,
-      mlAnalysis: mlResult,
-      integrationLogic: integrationLogs
-    }
+      krrAnalysis: { status: finalVerdict, ingredientResults: rows },
+      mlAnalysis: { provider: "Not used for local verdicts" },
+      integrationLogic: [
+        "Local canonical ingredient rules. Unknown evidence requires verification.",
+      ],
+    },
   };
-};
-
-const adaptBackendResult = (data: any): IntegratedAnalysisResult => ({
-  id: data.id,
-  finalVerdict: data.final_verdict,
-  confidence: data.confidence,
-  reason: data.reason,
-  flagged_ingredients: data.flagged_ingredients || [],
-  recommendation: data.recommendation || '',
-  name: data.product?.name || data.name || 'Analysis Result',
-  brand: data.product?.brand || data.brand || 'Unknown Brand',
-  image: data.product?.image || null,
-  barcode: data.product?.barcode || data.barcode || '',
-  ingredients: data.ingredients || '',
-  certification: data.certifying_body,
-  ingredient_results: data.ingredient_results || [],
-  triggered_rules: data.triggered_rules || [],
-  rubric_evidence: data.rubric_evidence,
-  architectureDetails: data.architectureDetails || {
-    krrAnalysis: {
-      status: data.final_verdict,
-      flags: [],
-      logicPath: []
+}
+export function adaptBackendResult(data: any): IntegratedAnalysisResult {
+  if (
+    !data ||
+    !Array.isArray(data.ingredient_results) ||
+    typeof data.ingredients !== "string"
+  )
+    throw new Error("The analysis service returned incomplete data.");
+  const rows: IngredientEvidence[] = data.ingredient_results.filter(
+    (row: any) =>
+      row &&
+      typeof row.ingredient === "string" &&
+      typeof row.status === "string",
+  );
+  let verdict = decideVerdict(data.ingredients, rows);
+  if (
+    verdict !== "NON-COMPLIANT" &&
+    (normalizeVerdict(data.final_verdict) === "REQUIRES REVIEW" ||
+      rows.length !== data.ingredient_results.length)
+  )
+    verdict = "REQUIRES REVIEW";
+  if (normalizeVerdict(data.final_verdict) === "NON-COMPLIANT")
+    verdict = "NON-COMPLIANT";
+  return {
+    id: data.id,
+    finalVerdict: verdict,
+    ...verdictCopy[verdict],
+    confidence: Number(data.confidence) || 0,
+    name: data.product?.name || data.name || "Ingredient check",
+    brand: data.product?.brand || "",
+    image: data.product?.image || null,
+    barcode: data.product?.barcode || "",
+    ingredients: data.ingredients,
+    flagged_ingredients: rows
+      .filter((row) => row.status !== "HALAL")
+      .map((row) => row.ingredient),
+    certification: data.certifying_body,
+    ingredient_results: rows,
+    triggered_rules: data.triggered_rules || [],
+    rubric_evidence: data.rubric_evidence,
+    evidenceMode: rows.some((row) =>
+      ["HALAL", "HARAM", "DOUBTFUL", "UNKNOWN"].includes(row.api_status || ""),
+    )
+      ? "online-services"
+      : "server-rules",
+    architectureDetails: data.architectureDetails || {
+      krrAnalysis: {},
+      mlAnalysis: {},
+      integrationLogic: [],
     },
-    mlAnalysis: {
-      provider: 'RapidAPI Halal Food Checker',
-      ingredient_results: data.ingredient_results || []
-    },
-    integrationLogic: []
-  }
-});
-
-const callBackendAnalyze = async (payload: BackendAnalyzePayload): Promise<IntegratedAnalysisResult> => {
-  const response = await fetch('/api/analyze', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Flask analysis backend failed.');
-  }
-
-  return adaptBackendResult(await response.json());
-};
-
-const runLegacyIntegratedAnalysis = async (productName: string, ingredients: string, madhab: string): Promise<IntegratedAnalysisResult> => {
-  const integrationLogs: string[] = [];
-  integrationLogs.push('Initializing fallback System Integration (Gemini/local ML + KR&R).');
-
-  const krrResult = runRuleBasedInference(ingredients);
-  integrationLogs.push(`KR&R Engine completed. Preliminary status: ${krrResult.status}.`);
-
-  if (!hasUsableIngredientText(ingredients)) {
-    integrationLogs.push('Input quality guard activated. No usable ingredient list was available, so external ML was skipped.');
-    const mlResult = {
-      verdict: 'HALAL',
-      confidence: 55,
-      reason: 'Insufficient ingredient information is available, but no haram ingredient was detected in the supplied text.',
-      flagged_ingredients: [],
-      recommendation: 'Scan the ingredients photo or paste the label text for a stronger check.',
-      name: productName,
-      ingredients
-    };
-
-    return buildConsensus(mlResult, krrResult, integrationLogs);
-  }
-
-  integrationLogs.push('Dispatching payload to fallback Machine Learning endpoint...');
-  let mlResult;
-  try {
-    mlResult = await analyzeProductWithGemini(productName, ingredients, madhab);
-    integrationLogs.push(`Fallback ML Engine completed. AI verdict: ${mlResult.verdict}.`);
-  } catch (error) {
-    integrationLogs.push('WARNING: Fallback ML API unreachable. Engaging Offline Fallback Model (Naive Bayes).');
-    const fallbackResult = scoreIngredients(ingredients);
-    mlResult = {
-      verdict: fallbackResult.verdict,
-      confidence: Math.round(fallbackResult.confidence * 100),
-      reason: `(Offline Fallback Active) Local statistical model evaluated text. Key influencing terms: ${fallbackResult.influencingTerms.join(', ')}.`,
-      flagged_ingredients: [],
-      recommendation: 'System running locally. Rule-based evaluation is accurate, but ML context may be limited.',
-      name: productName,
-      ingredients
-    };
-    integrationLogs.push(`Offline Fallback completed. Local AI verdict: ${mlResult.verdict}.`);
-  }
-
-  return buildConsensus(mlResult, krrResult, integrationLogs);
-};
-
-export const runIntegratedAnalysis = async (
-  productName: string,
+  };
+}
+async function analyze(payload: Record<string, unknown>, signal?: AbortSignal) {
+  return adaptBackendResult(
+    await fetchJson(
+      "/api/analyze",
+      { method: "POST", body: JSON.stringify(payload), signal },
+      25000,
+    ),
+  );
+}
+export async function runIntegratedAnalysis(
+  name: string,
   ingredients: string,
-  madhab: string,
-  certifyingBody = '',
-  options: { barcode?: string; brand?: string; image?: string | null } = {}
-): Promise<IntegratedAnalysisResult> => {
+  _madhab = "General",
+  certifyingBody = "",
+  options: {
+    barcode?: string;
+    brand?: string;
+    image?: string | null;
+    signal?: AbortSignal;
+  } = {},
+) {
   try {
-    return await callBackendAnalyze({
-      productName,
-      ingredients,
-      certifyingBody,
-      barcode: options.barcode,
-      brand: options.brand,
-      image: options.image
-    });
-  } catch (error) {
-    console.warn('Flask backend unavailable; using legacy frontend analysis fallback:', error);
-    return runLegacyIntegratedAnalysis(productName, ingredients, madhab);
-  }
-};
-
-export const runIntegratedBarcodeAnalysis = async (
-  barcode: string,
-  madhab: string,
-  certifyingBody = ''
-): Promise<IntegratedAnalysisResult> => {
-  try {
-    return await callBackendAnalyze({ barcode, certifyingBody });
-  } catch (error) {
-    console.warn('Flask barcode analysis unavailable; falling back to unknown-product local analysis:', error);
-    return runLegacyIntegratedAnalysis('Unknown Barcode Product', 'No ingredients listed.', madhab);
-  }
-};
-
-export const runIntegratedImageAnalysis = async (
-  imageBase64: string,
-  madhab: string,
-  localOcrText?: string,
-  certifyingBody = ''
-): Promise<IntegratedAnalysisResult> => {
-  if (localOcrText?.trim()) {
-    try {
-      return await callBackendAnalyze({
-        productName: 'Photo Scan',
-        ocrText: localOcrText.trim(),
+    if (typeof navigator !== "undefined" && navigator.onLine === false)
+      return runLocalAnalysis(name, ingredients, certifyingBody);
+    return await analyze(
+      {
+        productName: name,
+        ingredients,
         certifyingBody,
-        image: imageBase64.startsWith('data:image') ? imageBase64 : null
-      });
-    } catch (error) {
-      console.warn('Flask image-text analysis unavailable; using legacy image fallback:', error);
-    }
-  }
-
-  const integrationLogs: string[] = ['Initializing fallback Integrated Vision Pipeline (Gemini Image -> KR&R).'];
-  integrationLogs.push('Dispatching image to fallback Machine Learning Vision endpoint...');
-  let mlResult;
-  try {
-    mlResult = await analyzeImageWithGemini(imageBase64, madhab);
+        barcode: options.barcode,
+        brand: options.brand,
+      },
+      options.signal,
+    );
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Gemini vision API is unavailable.';
-    integrationLogs.push(`WARNING: Vision ML unavailable. ${message}`);
-
-    if (localOcrText?.trim()) {
-      const extractedText = localOcrText.trim();
-      integrationLogs.push(`Offline browser OCR fallback extracted text: "${extractedText}".`);
-      integrationLogs.push('Routing local OCR text through KR&R and local ML fallback.');
-
-      const krrResult = runRuleBasedInference(extractedText);
-      const fallbackResult = scoreIngredients(extractedText);
-      const influencingTerms = fallbackResult.influencingTerms.join(', ') || 'OCR text matched the rule base';
-      mlResult = {
-        verdict: fallbackResult.verdict,
-        confidence: Math.round(fallbackResult.confidence * 100),
-        reason: `(Offline OCR Active) Local browser OCR extracted label text and the local statistical model evaluated it. Key influencing terms: ${influencingTerms}.`,
-        flagged_ingredients: [],
-        recommendation: 'Verify the extracted text against the package label. If the label contains pork, alcohol, or a haram E-number, avoid the product.',
-        name: 'Photo Scan (Local OCR)',
-        ingredients: extractedText
-      };
-
-      return buildConsensus(mlResult, krrResult, integrationLogs);
-    }
-
-    const krrResult = runRuleBasedInference('');
-    return {
-      finalVerdict: 'HALAL',
-      confidence: 50,
-      reason: 'Image scan fallback is active, but no usable OCR text was available. No haram ingredient was detected in the supplied text.',
-      flagged_ingredients: [],
-      recommendation: 'Paste ingredients manually or configure the Flask Google Vision backend for a stronger check.',
-      name: 'Photo Scan (OCR Unavailable)',
-      ingredients: 'Image uploaded, but ingredients could not be extracted.',
-      architectureDetails: {
-        krrAnalysis: krrResult,
-        mlAnalysis: {
-          verdict: 'HALAL',
-          confidence: 50,
-          reason: 'No OCR text available.',
-          flagged_ingredients: [],
-          recommendation: 'Paste ingredients manually for analysis.'
-        },
-        integrationLogic: integrationLogs
-      }
-    };
+    if (options.signal?.aborted) throw error;
+    return runLocalAnalysis(name, ingredients, certifyingBody);
   }
-  integrationLogs.push(`Fallback ML Image Extraction completed. Identified ingredients: "${mlResult.ingredients}". AI verdict: ${mlResult.verdict}`);
-
-  integrationLogs.push('Routing extracted text to KR&R Reasoning Engine...');
-  const krrResult = runRuleBasedInference(mlResult.ingredients || '');
-  integrationLogs.push(`KR&R Engine completed. Rule status: ${krrResult.status}`);
-
-  return buildConsensus(mlResult, krrResult, integrationLogs);
-};
-
+}
+export async function runIntegratedBarcodeAnalysis(
+  barcode: string,
+  _madhab = "General",
+  certifyingBody = "",
+  signal?: AbortSignal,
+) {
+  if (typeof navigator !== "undefined" && navigator.onLine === false)
+    throw new Error(
+      "Barcode lookup needs a connection. Enter the ingredients or open a saved result.",
+    );
+  try {
+    return await analyze({ barcode, certifyingBody }, signal);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    throw new Error(
+      "The product lookup could not finish. Try again, or check the label using a photo or typed ingredients.",
+    );
+  }
+}
+export async function runIntegratedImageAnalysis(
+  _image: string,
+  madhab = "General",
+  text = "",
+  certifyingBody = "",
+  signal?: AbortSignal,
+) {
+  if (!hasUsableIngredients(text))
+    return runLocalAnalysis("Label photo", "", certifyingBody);
+  return runIntegratedAnalysis("Label photo", text, madhab, certifyingBody, {
+    signal,
+  });
+}

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import re
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any
 
-from .database import save_scan
+from .verdict import decide_verdict, has_full_rule_coverage, VERDICT_COPY
 from .knowledge_base import (
     STATUS_PRIORITY,
     evaluate_ingredient_against_rules,
@@ -130,7 +131,7 @@ def _build_rubric_evidence() -> dict[str, Any]:
             "required_rule_fields": ["id", "category", "status", "e_numbers", "keywords", "reason", "source"],
         },
         "reasoningEngine": {
-            "priority": ["HARAM", "HALAL"],
+            "priority": ["HARAM", "DOUBTFUL", "UNKNOWN", "HALAL"],
             "exposes": ["facts", "matchedRules", "logicPath", "conflictResolution", "certificationCheck"],
         },
         "systemIntegration": {
@@ -142,6 +143,13 @@ def _build_rubric_evidence() -> dict[str, Any]:
 
 
 def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError("Analysis requires a JSON object.")
+    for key in ("ingredients", "ocrText", "text", "productName", "name", "brand", "barcode", "certifyingBody", "certifying_body"):
+        value = payload.get(key, "")
+        limit = 10000 if key in {"ingredients", "ocrText", "text"} else 200
+        if not isinstance(value, str) or len(value) > limit:
+            raise ValueError("Use text fields and an ingredient list of at most 10,000 characters.")
     barcode = str(payload.get("barcode") or "").strip()
     certifying_body = payload.get("certifyingBody") or payload.get("certifying_body")
     product = {
@@ -204,9 +212,16 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
         logic_path.append(f"Extracted {len(ingredients)} ingredient facts.")
         ingredient_results = []
 
+        # Bound live work even for a very long label; every entry still gets local rules.
+        live_ingredients = list(dict.fromkeys(ingredients))[:8]
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            api_results = dict(zip(live_ingredients, executor.map(classify_ingredient, live_ingredients)))
         for ingredient in ingredients:
             kb_result = evaluate_ingredient_against_rules(ingredient)
-            api_result = classify_ingredient(ingredient)
+            if kb_result["status"] == "HALAL" and not has_full_rule_coverage(ingredient, kb_result["matched_rules"]):
+                kb_result["status"] = "UNKNOWN"
+                kb_result["reason"] = "Only part of this ingredient matched a rule. Verify the full ingredient and its source."
+            api_result = api_results.get(ingredient, {"status": "UNAVAILABLE", "source": "request-budget", "reason": "Checked with local rules; live lookup budget reached."})
             api_status = _normalize_api_status(api_result.get("status", "UNKNOWN"))
             kb_status = kb_result["status"]
 
@@ -240,10 +255,10 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
                     "api_status": api_status,
                     "kb_status": kb_status,
                     "confidence": api_result.get("confidence", 0) or (90 if kb_result["matched_rules"] else 50),
-                    "reason": kb_result["reason"] if kb_result["matched_rules"] else api_result.get("reason", kb_result["reason"]),
+                    "reason": api_result.get("reason", kb_result["reason"]) if STATUS_PRIORITY.get(api_status, 0) > STATUS_PRIORITY.get(kb_status, 0) else kb_result["reason"],
                     "rule_ids": rule_ids,
                     "matched_rules": kb_result["matched_rules"],
-                    "source": api_result.get("source", "knowledge-base"),
+                    "source": "knowledge-base" if api_status == "UNAVAILABLE" else api_result.get("source", "knowledge-base"),
                 }
             )
 
@@ -251,26 +266,11 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
     warning_items = [row for row in ingredient_results if row["status"] in {"DOUBTFUL", "UNKNOWN"}]
     rubric_evidence = _build_rubric_evidence()
 
-    if haram_items:
-        final_verdict = "NON-COMPLIANT"
-        confidence = 98
-        reason = "One or more ingredients were classified as haram by the knowledge base or Halal Food Checker API."
-        recommendation = "Avoid this product unless a qualified halal authority provides a corrected ingredient source."
-        logic_path.append("Verdict rule: any HARAM ingredient produces NON-COMPLIANT.")
-    else:
-        final_verdict = "HALAL COMPLIANT"
-        confidence = 84 if warning_items or not cert_result["recognized"] else 94
-        if warning_items:
-            reason = "No haram ingredient was detected. Some ingredients may still need source verification, but the user-facing result is halal unless a haram trigger is found."
-        else:
-            reason = "No haram ingredient was detected in the maintained ingredient rules or Halal Food Checker API."
-        if cert_result["recognized"]:
-            recommendation = "Product is treated as halal by this scan because no haram ingredient was found."
-        else:
-            recommendation = "Product is treated as halal by ingredient screening because no haram ingredient was found. Check certification separately if needed."
-        logic_path.append("Verdict rule: no HARAM ingredient produces HALAL COMPLIANT.")
-
-    flagged = [row["ingredient"] for row in haram_items]
+    final_verdict = decide_verdict(ingredients_text, ingredient_results)
+    reason, recommendation = VERDICT_COPY[final_verdict]
+    confidence = 98 if final_verdict == "NON-COMPLIANT" else 84 if final_verdict == "HALAL COMPLIANT" else 0
+    logic_path.append(f"Evidence policy v2: {final_verdict}. Certifier recognition is not product verification.")
+    flagged = [row["ingredient"] for row in ingredient_results if row["status"] != "HALAL"]
     scan = {
         "id": str(uuid.uuid4()),
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -294,7 +294,7 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "architectureDetails": {
             "rubricEvidence": rubric_evidence,
             "krrAnalysis": {
-                "status": "HARAM" if haram_items else "HALAL",
+                "status": "HARAM" if haram_items else "UNKNOWN" if final_verdict == "REQUIRES REVIEW" else "HALAL",
                 "confidence": confidence / 100,
                 "flags": [
                     {
@@ -308,7 +308,7 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 "facts": fact_trace,
                 "matchedRules": matched_rule_trace,
                 "conflictResolution": {
-                    "priority": ["HARAM", "HALAL"],
+                    "priority": ["HARAM", "DOUBTFUL", "UNKNOWN", "HALAL"],
                     "selectedVerdict": final_verdict,
                     "reason": reason,
                 },
@@ -321,11 +321,10 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
             },
             "mlAnalysis": {
                 "provider": "RapidAPI Halal Food Checker",
-                "verdict": "HARAM" if haram_items else "HALAL",
+                "verdict": "HARAM" if haram_items else "UNKNOWN" if final_verdict == "REQUIRES REVIEW" else "HALAL",
                 "ingredient_results": ingredient_results,
             },
             "integrationLogic": logic_path,
         },
     }
-    save_scan(scan)
     return scan

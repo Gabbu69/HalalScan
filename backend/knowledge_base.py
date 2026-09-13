@@ -136,7 +136,7 @@ def verify_certifying_body(value: str | None) -> dict[str, Any]:
                 "status": "RECOGNIZED",
                 "recognized": True,
                 "matched_body": body,
-                "reason": f"{body['name']} is in the maintained recognized-body list.",
+                "reason": f"{body['name']} is a recognized body-name reference. This product and its certificate have not been verified.",
             }
 
     return {

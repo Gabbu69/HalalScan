@@ -1,132 +1,147 @@
-import React, { useState } from 'react';
-import { useAppStore } from '../store/useAppStore';
-import { askHalalAssistant } from '../utils/geminiApi';
-import { Bot, Send, User } from 'lucide-react';
-import { useTranslation } from '../hooks/useTranslation';
-
-interface ChatMessage {
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { Send, ArrowLeft } from "lucide-react";
+import { useCopy } from "../utils/copy";
+import { useAppStore } from "../store/useAppStore";
+import { useOnline } from "../hooks/useOnline";
+import { fetchJson } from "../utils/requests";
+import {
+  CANONICAL_RULES,
+  normalizeEcodes,
+} from "../utils/canonicalKnowledgeBase";
+type Message = {
   id: string;
-  role: 'user' | 'assistant';
-  content: string;
-}
-
+  role: "user" | "assistant";
+  text: string;
+  local?: boolean;
+};
 export function AiChat() {
-  const { madhab } = useAppStore();
-  const { t } = useTranslation();
-  const isGeneral = madhab === 'General';
-  
-  const initialGreeting = isGeneral
-    ? (t('chat.welcome_general') || "Hello! I am Scan AI. How can I assist you with analyzing products for animal-derived ingredients, hidden pork, or alcohol today?")
-    : (t('chat.welcome') || "Assalamu alaikum! I am HalalScan AI. How can I help you regarding Halal food, ingredients, or Islamic jurisprudence today?");
-
-  const [messages, setMessages] = useState<ChatMessage[]>([{
-    id: '1',
-    role: 'assistant',
-    content: initialGreeting
-  }]);
-  const [input, setInput] = useState('');
+  const c = useCopy();
+  const online = useOnline();
+  const language = useAppStore((s) => s.language);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // When madhab or language changes, reset chat
-  React.useEffect(() => {
-    setMessages([{
-      id: '1',
-      role: 'assistant',
-      content: initialGreeting
-    }]);
-  }, [madhab, isGeneral, initialGreeting]);
-
-  const handleSend = async (e: React.FormEvent) => {
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => () => request.current?.abort(), []);
+  const send = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || loading) return;
-
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input.trim()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    const query = input.trim();
+    if (!query || loading) return;
+    setMessages((items) => [
+      ...items,
+      { id: crypto.randomUUID(), role: "user", text: query },
+    ]);
+    setInput("");
     setLoading(true);
-
+    const controller = new AbortController();
+    request.current = controller;
     try {
-      const response = await askHalalAssistant(userMessage.content, madhab);
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response
-      };
-      setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: "I'm sorry, I'm having trouble connecting right now. Please check your API key or try again later."
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      let text = "";
+      let local = false;
+      if (online) {
+        try {
+          const data = await fetchJson(
+            "/api/chat",
+            {
+              method: "POST",
+              body: JSON.stringify({ query, language }),
+              signal: controller.signal,
+            },
+            15000,
+          );
+          text = typeof data.text === "string" ? data.text : "";
+        } catch {}
+      }
+      if (!text) {
+        local = true;
+        const normalized = normalizeEcodes(query);
+        const terms = normalized
+          .split(/[^a-z0-9]+/)
+          .filter((t) => t.length > 2);
+        const matching = CANONICAL_RULES.map((rule) => ({
+          rule,
+          score:
+            [...rule.e_numbers, ...rule.keywords].reduce(
+              (n, term) =>
+                n + (normalized.includes(normalizeEcodes(term)) ? 4 : 0),
+              0,
+            ) +
+            terms.filter((term) => rule.title.toLowerCase().includes(term))
+              .length,
+        }))
+          .filter((item) => item.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 3);
+        text = matching.length
+          ? matching
+              .map(
+                ({ rule }) =>
+                  rule.title +
+                  "\n" +
+                  rule.reason +
+                  "\nSource: " +
+                  rule.id +
+                  " · " +
+                  rule.source,
+              )
+              .join("\n\n")
+          : c("noRules");
+      }
+      if (!controller.signal.aborted)
+        setMessages((items) => [
+          ...items,
+          { id: crypto.randomUUID(), role: "assistant", text, local },
+        ]);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   };
-
   return (
-    <div className="flex flex-col h-full mx-auto max-w-md w-full pt-4 font-nunito bg-[#F9F5F0] dark:bg-[var(--color-dark-bg)]">
-      <div className="px-5 mb-2 border-b border-gray-200 dark:border-gray-800 pb-3 flex flex-row items-center gap-3 shrink-0">
-        <div className="w-10 h-10 bg-[#1B6B3A] border-2 border-[#C9A84C] rounded-full flex items-center justify-center shadow-md">
-          <Bot size={20} className="text-white" />
-        </div>
-        <div>
-          <h2 className="font-amiri italic text-xl text-[#1B6B3A] dark:text-green-400 font-bold leading-tight">
-            {t('chat.title') || (isGeneral ? "Scan AI" : "Ask Imam AI")}
-          </h2>
-          <p className="text-[10px] text-gray-500 font-bold tracking-wider uppercase">Flask KB + Fallback AI</p>
-        </div>
+    <div className="page page-narrow">
+      <Link to="/knowledge" className="btn btn-quiet">
+        <ArrowLeft size={18} />
+        {c("guide")}
+      </Link>
+      <div className="page-heading spaced">
+        <h1>{c("chatTitle")}</h1>
+        <p>{c("chatHelp")}</p>
       </div>
-
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-        {messages.map(msg => (
-          <div key={msg.id} className={`flex flex-row ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] rounded-2xl p-4 shadow-sm ${
-              msg.role === 'user' 
-                ? 'bg-[#1B6B3A] text-white rounded-br-none' 
-                : 'bg-white dark:bg-[#1a2e22] text-[#1a1a1a] dark:text-white rounded-bl-none border border-gray-100 dark:border-gray-800'
-            }`}>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-            </div>
+      <p className="notice">{c("ruleScope")}</p>
+      <div
+        className="chat-log"
+        role="log"
+        aria-live="polite"
+        aria-label={c("chatTitle")}
+      >
+        {messages.map((message) => (
+          <div key={message.id} className={"chat-message " + message.role}>
+            {message.local && <p className="small muted">{c("localRules")}</p>}
+            <p lang={message.role === "assistant" ? "en" : undefined}>
+              {message.text}
+            </p>
           </div>
         ))}
-        {loading && (
-          <div className="flex flex-row justify-start">
-            <div className="max-w-[85%] rounded-2xl p-4 shadow-sm bg-white dark:bg-[#1a2e22] text-[#1a1a1a] dark:text-white rounded-bl-none border border-gray-100 dark:border-gray-800">
-               <div className="flex gap-1.5 items-center">
-                  <div className="w-1.5 h-1.5 bg-[#1B6B3A] dark:bg-green-400 rounded-full animate-bounce"></div>
-                  <div className="w-1.5 h-1.5 bg-[#1B6B3A] dark:bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  <div className="w-1.5 h-1.5 bg-[#1B6B3A] dark:bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-               </div>
-            </div>
-          </div>
-        )}
+        {loading && <p role="status">{c("checking")}</p>}
       </div>
-
-      <div className="p-4 bg-white dark:bg-[#1a2e22] border-t border-gray-200 dark:border-gray-800 shrink-0">
-        <form onSubmit={handleSend} className="flex flex-row items-center gap-2">
-          <input
-            type="text"
-            className="flex-1 px-4 py-3 rounded-full bg-[#F9F5F0] dark:bg-[#0f1a13] text-[#1a1a1a] dark:text-white text-sm focus:outline-none border border-gray-200 dark:border-gray-700"
-            placeholder={t('chat.placeholder') || (isGeneral ? "E.g. Is carmine vegan?" : "E.g. Is cochineal allowed?")}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-          />
-          <button 
-            type="submit" 
-            disabled={loading || !input.trim()}
-            className="w-12 h-12 rounded-full bg-[#C9A84C] hover:bg-[#b59642] flex items-center justify-center text-[#1B6B3A] disabled:opacity-50 transition-colors shadow-md"
-          >
-            <Send size={18} className="translate-x-[1px]" />
-          </button>
-        </form>
-      </div>
+      <form onSubmit={(e) => void send(e)} className="chat-form">
+        <input
+          className="input"
+          maxLength={2000}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          aria-label={c("question")}
+          placeholder={c("question")}
+        />
+        <button
+          className="btn btn-primary"
+          type="submit"
+          disabled={loading || !input.trim()}
+          aria-label={c("send")}
+        >
+          <Send size={20} />
+        </button>
+      </form>
     </div>
   );
 }

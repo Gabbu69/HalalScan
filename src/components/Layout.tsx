@@ -1,53 +1,88 @@
-import React from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { Home, History, BookOpen, MessageCircle, Settings, FlaskConical } from 'lucide-react';
-import { useAppStore } from '../store/useAppStore';
-import { useTranslation } from '../hooks/useTranslation';
-
+import { Link, NavLink, Outlet } from "react-router-dom";
+import {
+  Home,
+  ScanLine,
+  Bookmark,
+  BookOpen,
+  Settings,
+  WifiOff,
+  AlertCircle,
+} from "lucide-react";
+import { useCopy } from "../utils/copy";
+import { useAppStore } from "../store/useAppStore";
+import { useOnline } from "../hooks/useOnline";
+import { PwaNotice } from "./PwaNotice";
 export function Layout() {
-  const { isDarkMode } = useAppStore();
-  const { t } = useTranslation();
-  
+  const c = useCopy();
+  const online = useOnline();
+  const error = useAppStore((s) => s.storageError);
+  const historyReady = useAppStore((s) => s.historyReady);
+  const clearError = useAppStore((s) => s.clearError);
+  const initialize = useAppStore((s) => s.initialize);
   return (
-    <div className={`flex flex-col h-screen ${isDarkMode ? 'dark' : ''} bg-[#F9F5F0] dark:bg-[var(--color-dark-bg)] text-[#1a1a1a] font-nunito overflow-hidden`}>
-      <header className="w-full h-16 bg-[#1B6B3A] flex items-center justify-between px-6 sm:px-8 shadow-md border-b-4 border-[#C9A84C] flex-shrink-0 z-10 transition-colors">
-        <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="HalalScan Logo" className="w-8 h-8 rounded-lg shadow-sm border border-[#124d29]/20" />
-          <h1 className="text-2xl font-amiri italic font-bold text-white tracking-wide">HalalScan</h1>
-        </div>
-        <div className="flex items-center">
-          <div className="px-2 py-1 bg-[#C9A84C] text-[#1B6B3A] rounded font-bold text-[10px] sm:text-xs shadow-sm">BETA</div>
+    <div className="app-shell">
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
+      <header className="app-header">
+        <div className="header-inner">
+          <Link to="/" className="brand">
+            <img src="/logo.png" alt="" />
+            <span>HalalScan</span>
+          </Link>
+          <nav className="main-nav" aria-label="Main navigation">
+            {[
+              ["/", "home", Home],
+              ["/scanner", "scan", ScanLine],
+              ["/history", "saved", Bookmark],
+              ["/knowledge", "guide", BookOpen],
+            ].map(([to, key, Icon]: any) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={to === "/"}
+                className={({ isActive }) =>
+                  "nav-link" + (isActive ? " active" : "")
+                }
+              >
+                <Icon size={20} aria-hidden="true" />
+                {c(key)}
+              </NavLink>
+            ))}
+          </nav>
+          <Link
+            className="icon-button"
+            to="/profile"
+            aria-label={c("settings")}
+          >
+            <Settings size={21} />
+          </Link>
         </div>
       </header>
-
-      <div className="flex-1 overflow-y-auto dark:text-gray-100 transition-colors relative flex flex-col pt-0">
-        <Outlet />
-      </div>
-
-      <nav className="flex-none bg-white dark:bg-[#1a2e22] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] border-t border-gray-200 dark:border-gray-800 transition-colors z-10 relative h-14 sm:h-16 flex items-center">
-        <div className="flex flex-row justify-around max-w-md mx-auto w-full">
-          <NavItem to="/" icon={<Home size={22} />} label={t('layout.home')} />
-          <NavItem to="/history" icon={<History size={22} />} label={t('layout.history')} />
-          <NavItem to="/chat" icon={<MessageCircle size={22} />} label={t('layout.chat')} />
-          <NavItem to="/knowledge" icon={<BookOpen size={22} />} label={t('layout.knowledge') || 'Knowledge'} />
-          <NavItem to="/evaluation" icon={<FlaskConical size={22} />} label="Evaluate" />
-          <NavItem to="/profile" icon={<Settings size={22} />} label={t('layout.profile')} />
+      {!online && (
+        <div className="notice global-notice" role="status">
+          <WifiOff size={21} />
+          <div>
+            <strong>{c("offline")}</strong>
+            <p>{c("offlineHelp")}</p>
+          </div>
         </div>
-      </nav>
+      )}
+      {error && (
+        <div className="notice notice-error global-notice" role="alert">
+          <AlertCircle size={21} />
+          <div>
+            <p>{error}</p>
+            <button className="btn btn-quiet" onClick={() => historyReady ? clearError() : void initialize()}>
+              {c(historyReady ? "dismiss" : "retry")}
+            </button>
+          </div>
+        </div>
+      )}
+      <PwaNotice />
+      <main id="main" tabIndex={-1}>
+        <Outlet />
+      </main>
     </div>
-  );
-}
-
-function NavItem({ to, icon, label }: { to: string; icon: React.ReactNode; label?: string }) {
-  const location = useLocation();
-  const isActive = location.pathname === to;
-  return (
-    <NavLink 
-      to={to} 
-      className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 ${isActive ? 'text-[#1B6B3A] dark:text-green-400 bg-[#1B6B3A]/10 dark:bg-green-400/10' : 'text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400'}`}
-    >
-      {icon}
-      {label && <span className="text-[9px] mt-1 font-bold">{label}</span>}
-    </NavLink>
   );
 }

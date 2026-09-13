@@ -1,143 +1,107 @@
-import React, { useEffect, useState } from 'react';
-import { ScanRecord, useAppStore } from '../store/useAppStore';
-import { Badge } from '../components/Badge';
-import { Trash2 } from 'lucide-react';
-import { useTranslation } from '../hooks/useTranslation';
-import { getVerdictPresentation, verdictMatchesTone } from '../utils/verdictPresentation';
-
+import { useState } from "react";
+import { Search, Star, Bookmark, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useAppStore } from "../store/useAppStore";
+import { useCopy } from "../utils/copy";
+import { searchScans } from "../lib/scanStorage";
+import { SavedRow } from "../components/SavedRow";
 export function History() {
-  const { t } = useTranslation();
-  const { scans, setScans, deleteScan, clearScans, getStats } = useAppStore();
-  const [filter, setFilter] = useState('ALL');
-  const stats = getStats();
-
-  useEffect(() => {
-    const loadBackendHistory = async () => {
-      try {
-        const response = await fetch('/api/history');
-        if (!response.ok) return;
-        const data = await response.json();
-        const backendScans: ScanRecord[] = (data.history || []).map((item: any) => ({
-          id: item.id,
-          date: item.created_at,
-          barcode: item.product?.barcode || '',
-          name: item.product?.name || 'Unknown Product',
-          brand: item.product?.brand || 'Unknown Brand',
-          image: item.product?.image || null,
-          ingredients: item.ingredients || '',
-          verdict: item.final_verdict,
-          confidence: item.confidence,
-          flagged_ingredients: item.flagged_ingredients || [],
-          reason: item.reason,
-          recommendation: item.recommendation,
-          certification: item.certifying_body,
-          ingredient_results: item.ingredient_results,
-          triggered_rules: item.triggered_rules,
-          architectureDetails: item.architectureDetails
-        }));
-        if (backendScans.length > 0) setScans(backendScans);
-      } catch {
-        // Local persisted history remains available when Flask is not running.
-      }
-    };
-
-    loadBackendHistory();
-  }, [setScans]);
-
-  const matchesFilter = (scan: ScanRecord) => {
-    if (filter === 'ALL') return true;
-    if (filter === 'HALAL') return verdictMatchesTone(scan.verdict, 'halal');
-    return verdictMatchesTone(scan.verdict, 'haram');
-  };
-
-  const filteredScans = scans.filter(matchesFilter);
-
-  const handleClear = () => {
-    if (window.confirm(t('history.clear_confirm') || "Are you sure you want to delete all scans?")) {
-      clearScans();
-    }
-  };
-
+  const c = useCopy();
+  const scans = useAppStore((s) => s.scans);
+  const ready = useAppStore((s) => s.historyReady);
+  const clear = useAppStore((s) => s.clearScans);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("ALL");
+  const [favorites, setFavorites] = useState(false);
+  const results = searchScans(scans, query, filter, favorites);
   return (
-    <div className="flex flex-col h-full mx-auto max-w-md w-full pt-4">
-      <div className="px-5 mb-4 flex justify-between items-center">
-        <h2 className="font-amiri italic text-2xl text-[#1B6B3A] dark:text-green-400 font-bold">{t('history.title') || 'Scan History'}</h2>
+    <div className="page page-narrow">
+      <div className="page-heading">
+        <h1>{c("savedTitle")}</h1>
+        <p>{c("savedIntro")}</p>
+      </div>
+      <div className="search-field">
+        <Search size={19} />
+        <input
+          className="input"
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={c("searchSaved")}
+          aria-label={c("searchSaved")}
+        />
+      </div>
+      <div className="history-toolbar">
+        <button
+          className="toggle"
+          aria-pressed={favorites}
+          onClick={() => setFavorites(!favorites)}
+        >
+          <Star size={18} />
+          {c("favorites")}
+        </button>
+        <select
+          className="input"
+          aria-label={c("allResults")}
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        >
+          {[
+            ["ALL", "allResults"],
+            ["HALAL COMPLIANT", "positive"],
+            ["REQUIRES REVIEW", "uncertain"],
+            ["NON-COMPLIANT", "negative"],
+          ].map(([value, key]) => (
+            <option key={value} value={value}>
+              {c(key)}
+            </option>
+          ))}
+        </select>
         {scans.length > 0 && (
-          <button onClick={handleClear} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors flex items-center gap-1">
-            <Trash2 size={16} />
-            <span className="text-[10px] font-bold uppercase tracking-wider">{t('history.clear') || 'Clear'}</span>
+          <button
+            className="btn btn-quiet"
+            onClick={() => {
+              if (window.confirm(c("clearConfirm"))) void clear();
+            }}
+          >
+            <Trash2 size={18} />
+            {c("clearHistory")}
           </button>
         )}
       </div>
-
-      <div className="px-5 mb-6">
-        <div className="flex flex-row overflow-x-auto gap-2 no-scrollbar pb-1">
-          {['ALL', 'HALAL', 'HARAM'].map(f => {
-            let activeClass = 'bg-[#1B6B3A] text-white border-[#1B6B3A]';
-            if (f === 'HALAL') activeClass = 'bg-green-600 text-white border-green-600';
-            if (f === 'HARAM') activeClass = 'bg-red-600 text-white border-red-600';
-
-            const count = 
-              f === 'ALL' ? stats.total : 
-              f === 'HALAL' ? stats.halal : 
-              stats.haram;
-
-            return (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-4 py-1.5 rounded-full whitespace-nowrap text-[10px] font-bold tracking-wider uppercase transition-colors shadow-sm border flex items-center gap-1.5 ${filter === f ? activeClass : 'bg-white dark:bg-[#1a2e22] text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'}`}
-              >
-                <span>{f === 'ALL' ? (t('history.total') || 'All') : f}</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[8px] bg-black/10 dark:bg-white/10 ${filter === f ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`}>
-                  {count}
-                </span>
-              </button>
-            )
-          })}
+      {!ready ? (
+        <p role="status">{c("saving")}</p>
+      ) : results.length ? (
+        <div>
+          {results.map((scan) => (
+            <SavedRow key={scan.id} scan={scan} />
+          ))}
         </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-5 pb-20 w-full space-y-3">
-        {filteredScans.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">{t('history.no_history') || 'No scans found.'}</p>
+      ) : (
+        <div className="empty-state">
+          <Bookmark size={36} />
+          <h2>{c(scans.length ? "noMatches" : "emptyTitle")}</h2>
+          <p>{c("emptyIntro")}</p>
+          <div className="actions spaced">
+            {scans.length > 0 && (
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  setQuery("");
+                  setFilter("ALL");
+                  setFavorites(false);
+                }}
+              >
+                {c("resetFilters")}
+              </button>
+            )}
+            <Link className="btn btn-primary" to="/scanner">
+              {c("scanProduct")}
+            </Link>
           </div>
-        ) : (
-          filteredScans.map(item => {
-            const verdict = getVerdictPresentation(item.verdict);
-            const borderClass = verdict.borderClass;
-
-            return (
-              <div key={item.id} className="relative bg-white dark:bg-[#1a2e22] p-4 rounded-2xl shadow-sm overflow-hidden flex flex-col gap-1 border border-gray-100 dark:border-gray-800 group">
-                <div className="flex flex-row justify-between items-start mb-1">
-                  <div className="flex-1 px-4">
-                    <h3 className="font-bold text-sm text-[#1B6B3A] dark:text-green-400 truncate tracking-wide" title={item.name}>{item.name}</h3>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{item.brand}</p>
-                    <p className={`text-[8px] font-bold uppercase tracking-wider truncate mt-1 ${verdict.textClass}`}>{verdict.secondaryLabel}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge verdict={item.verdict} />
-                    <button
-                      onClick={() => deleteScan(item.id)}
-                      className="text-gray-400 hover:text-red-500 transition-colors p-1"
-                      title="Delete scan"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-                <div className={`mt-2 pl-2 border-l-2 rtl:pl-0 rtl:pr-2 rtl:border-l-0 rtl:border-r-2 ${borderClass}`}>
-                  <p className="text-[10px] leading-relaxed text-gray-600 dark:text-gray-300 line-clamp-2">
-                    <span className="font-bold tracking-wider text-[9px] uppercase mr-1 rtl:ml-1 rtl:mr-0">{t('analysis.reason') || 'Reason'}:</span> 
-                    {item.reason}
-                  </p>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+        </div>
+      )}
+      <p className="bottom-note">{c("privacyHelp")}</p>
     </div>
   );
 }
