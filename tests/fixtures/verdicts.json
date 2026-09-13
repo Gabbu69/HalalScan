@@ -1,16 +1,113 @@
 [
-  {"name":"known ingredients","ingredients":"rice, sunflower oil, sea salt","expected":"HALAL COMPLIANT"},
-  {"name":"source resolved","ingredients":"fish gelatin, vegetable glycerin, soy lecithin","expected":"HALAL COMPLIANT"},
-  {"name":"doubtful ingredients","ingredients":"sugar, gelatin, natural flavors","expected":"REQUIRES REVIEW"},
-  {"name":"unknown ingredient","ingredients":"sugar, zorbium extract","expected":"REQUIRES REVIEW"},
-  {"name":"explicit noncompliance","ingredients":"sugar, porcine gelatin","expected":"NON-COMPLIANT"},
-  {"name":"haram overrides unresolved","ingredients":"zorbium, pork fat","expected":"NON-COMPLIANT"},
-  {"name":"missing label","ingredients":"No ingredients listed.","expected":"REQUIRES REVIEW"},
-  {"name":"OCR failure","ingredients":"","expected":"REQUIRES REVIEW"},
-  {"name":"unrecognized E number","ingredients":"water, E1200","expected":"REQUIRES REVIEW"},
-  {"name":"unicode E number","ingredients":"water, E‑120","expected":"NON-COMPLIANT"},
-  {"name":"unavailable services with usable rules","ingredients":"water, sugar, salt","expected":"HALAL COMPLIANT"},
-  {"name":"unrecognized status","ingredients":"sugar","rows":[{"ingredient":"sugar","status":"UNFAMILIAR"}],"expected":"REQUIRES REVIEW"},
-  {"name":"conflicting sources","ingredients":"sugar","rows":[{"ingredient":"sugar","status":"HARAM","kb_status":"HALAL","api_status":"HARAM"}],"expected":"NON-COMPLIANT"},
-  {"name":"positive without evidence","ingredients":"sugar","rows":[],"expected":"REQUIRES REVIEW"}
+  {
+    "name": "known ingredients",
+    "ingredients": "rice, sunflower oil, sea salt",
+    "expected": "HALAL COMPLIANT"
+  },
+  {
+    "name": "source resolved",
+    "ingredients": "fish gelatin, vegetable glycerin, soy lecithin",
+    "expected": "HALAL COMPLIANT"
+  },
+  {
+    "name": "doubtful ingredients",
+    "ingredients": "sugar, gelatin, natural flavors",
+    "expected": "REQUIRES REVIEW"
+  },
+  {
+    "name": "unknown ingredient",
+    "ingredients": "sugar, zorbium extract",
+    "expected": "REQUIRES REVIEW"
+  },
+  {
+    "name": "explicit noncompliance",
+    "ingredients": "sugar, porcine gelatin",
+    "expected": "NON-COMPLIANT"
+  },
+  {
+    "name": "haram overrides unresolved",
+    "ingredients": "zorbium, pork fat",
+    "expected": "NON-COMPLIANT"
+  },
+  {
+    "name": "missing label",
+    "ingredients": "No ingredients listed.",
+    "expected": "REQUIRES REVIEW"
+  },
+  {
+    "name": "OCR failure",
+    "ingredients": "",
+    "expected": "REQUIRES REVIEW"
+  },
+  {
+    "name": "unrecognized E number",
+    "ingredients": "water, E1200",
+    "expected": "REQUIRES REVIEW"
+  },
+  {
+    "name": "unicode E number",
+    "ingredients": "water, E‑120",
+    "expected": "NON-COMPLIANT"
+  },
+  {
+    "name": "unavailable services with usable rules",
+    "ingredients": "water, sugar, salt",
+    "expected": "HALAL COMPLIANT"
+  },
+  {
+    "name": "unrecognized status",
+    "ingredients": "sugar",
+    "rows": [
+      {
+        "ingredient": "sugar",
+        "status": "UNFAMILIAR"
+      }
+    ],
+    "expected": "REQUIRES REVIEW"
+  },
+  {
+    "name": "conflicting sources",
+    "ingredients": "sugar",
+    "rows": [
+      {
+        "ingredient": "sugar",
+        "status": "HARAM",
+        "kb_status": "HALAL",
+        "api_status": "HARAM"
+      }
+    ],
+    "expected": "NON-COMPLIANT"
+  },
+  {
+    "name": "positive without evidence",
+    "ingredients": "sugar",
+    "rows": [],
+    "expected": "REQUIRES REVIEW"
+  },
+  {
+    "name": "compound with unknown component",
+    "ingredients": "sugar (zorbium)",
+    "expected": "REQUIRES REVIEW"
+  },
+  {
+    "name": "unresolved ingredient suffix",
+    "ingredients": "rice mystery extract",
+    "expected": "REQUIRES REVIEW"
+  },
+  {
+    "name": "unparsed ingredient fragment",
+    "ingredients": "sugar, x",
+    "expected": "REQUIRES REVIEW"
+  },
+  {
+    "name": "partial positive evidence",
+    "ingredients": "sugar, zorbium",
+    "rows": [
+      {
+        "ingredient": "sugar",
+        "status": "HALAL"
+      }
+    ],
+    "expected": "REQUIRES REVIEW"
+  }
 ]

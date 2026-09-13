@@ -159,7 +159,7 @@ def test_known_ingredients_with_body_reference_pass_screening(tmp_path, monkeypa
     assert response.get_json()["final_verdict"] == "HALAL COMPLIANT"
 
 
-def test_common_clean_ingredients_are_not_left_unknown(tmp_path, monkeypatch):
+def test_partially_matched_compound_ingredients_require_review(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
     response = client.post(
         "/api/analyze",
@@ -174,13 +174,11 @@ def test_common_clean_ingredients_are_not_left_unknown(tmp_path, monkeypatch):
     )
     data = response.get_json()
     assert response.status_code == 200
-    assert data["final_verdict"] == "HALAL COMPLIANT"
-    assert {row["status"] for row in data["ingredient_results"]} == {"HALAL"}
-    assert not [
-        row["ingredient"]
-        for row in data["ingredient_results"]
-        if row["status"] == "UNKNOWN"
+    assert data["final_verdict"] == "REQUIRES REVIEW"
+    assert [row["ingredient"] for row in data["ingredient_results"] if row["status"] == "UNKNOWN"] == [
+        "vegetable oil (sunflower, corn)", "green tea leaves"
     ]
+    assert all(row["status"] == "HALAL" for row in data["ingredient_results"] if row["ingredient"] not in data["flagged_ingredients"])
 
 
 def test_specific_halal_sources_override_generic_doubtful_terms(tmp_path, monkeypatch):

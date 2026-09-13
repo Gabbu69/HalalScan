@@ -8,15 +8,18 @@
     "backend": "python -m backend.app",
     "build": "vite build",
     "preview": "vite preview",
-    "clean": "rm -rf dist",
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
     "lint": "tsc --noEmit",
     "evaluate": "tsx test_ml.ts",
     "test:ml": "tsx test_ml.ts",
     "test:backend": "python -m pytest backend",
     "test:vercel-api": "tsx test_vercel_api.ts",
-    "test:badges": "node test_badges_visual.js",
+    "test:badges": "playwright test --grep \"result labels\"",
     "test:api": "node test_local_api.js",
-    "test:gemini": "node test_gemini.js"
+    "test:gemini": "node test_gemini.js",
+    "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "verify": "npm run lint && npm test && npm run test:backend && npm run test:vercel-api && npm run evaluate && npm run build"
   },
   "dependencies": {
     "@fontsource/amiri": "^5.3.0",
@@ -40,6 +43,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.63.0",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
@@ -48,6 +52,7 @@
     "@vercel/node": "^13.0.0",
     "autoprefixer": "^10.4.21",
     "fake-indexeddb": "^6.2.5",
+    "prettier": "^3.9.6",
     "puppeteer": "^25.10.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
@@ -55,5 +60,14 @@
     "vite": "^6.2.0",
     "vite-plugin-pwa": "^1.3.0",
     "workbox-window": "^7.4.1"
+  },
+  "overrides": {
+    "@vercel/node": {
+      "undici": "^6.28.1",
+      "path-to-regexp": "^6.3.0"
+    },
+    "qs": "^6.16.0",
+    "esbuild": "^0.25.12",
+    "ajv": "^8.20.0"
   }
 }
