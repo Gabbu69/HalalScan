@@ -15,10 +15,20 @@ HalalScan is a React + Flask web application for halal compliance screening. It 
 
 ## Verdict Model
 
-- `NON-COMPLIANT`: any ingredient is haram by API or knowledge-base rule.
-- `HALAL COMPLIANT`: no haram ingredient is detected.
+The product has three results:
 
-Ingredient-level rows may still show `DOUBTFUL` or `UNKNOWN` when a source needs verification. Those warnings remain visible as evidence, but they do not create a product-level "maybe" verdict.
+- `NON-COMPLIANT`: at least one ingredient has explicit non-compliant evidence.
+- `REQUIRES REVIEW`: the label is missing/incomplete, any ingredient is doubtful,
+  unknown or unavailable, or the evidence does not cover every label ingredient.
+- `HALAL COMPLIANT`: every listed ingredient has positive screening evidence and
+  the evidence covers the complete ingredient list. The interface calls this
+  **No flagged ingredients**. It is ingredient screening, not product certification.
+
+An unfamiliar ingredient, partial keyword match, failed OCR extraction, provider
+failure or exhausted lookup budget must never silently become a positive result.
+The TypeScript implementation is `shared/verdict.ts`; the Flask equivalent is
+`backend/verdict.py`. Shared fixtures and verdict tests check parity. Deployed
+history is device-local; local Flask history uses SQLite.
 
 ## Setup
 
